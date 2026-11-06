@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sheet, Singil!</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Design tokens: swap these to match your portfolio exactly */
+:root{--bg:#f6f7fb;--card:#fff;--ink:#14162b;--mute:#6b7089;--line:#e4e6f0;--accent:#4f46e5;--accent-ink:#fff;--accent-soft:#eceafd;
+--present:#15803d;--absent:#dc2626;--late:#b45309;--excused:#2563eb;--paid:#15803d;--partial:#b45309;--unpaid:#dc2626;
+--r:16px;--font:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1020;--card:#181a30;--ink:#eef0ff;--mute:#9a9fbd;--line:#2a2d4a;--accent:#8b84ff;--accent-ink:#0f1020;--accent-soft:#25244a;--present:#4ade80;--absent:#f87171;--late:#fbbf24;--excused:#60a5fa;--paid:#4ade80;--partial:#fbbf24;--unpaid:#f87171}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1020;--card:#181a30;--ink:#eef0ff;--mute:#9a9fbd;--line:#2a2d4a;--accent:#8b84ff;--accent-ink:#0f1020;--accent-soft:#25244a;--present:#4ade80;--absent:#f87171;--late:#fbbf24;--excused:#60a5fa;--paid:#4ade80;--partial:#fbbf24;--unpaid:#f87171}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.5 var(--font)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+header .wrap{display:flex;align-items:center;gap:12px;padding:12px 20px;flex-wrap:wrap}
+.brand{font-weight:800;font-size:18px;color:var(--ink);text-decoration:none;margin-right:auto}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:9px 14px;border-radius:999px;color:var(--mute);text-decoration:none;font-weight:600;font-size:14px}
+nav a.on{background:var(--accent-soft);color:var(--accent)}
+h1{font-size:clamp(26px,5vw,36px);line-height:1.15;margin:28px 0 6px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:20px;margin:0 0 4px;font-weight:700}
+.sub{color:var(--mute);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hero{display:block;text-decoration:none;color:inherit;transition:border-color .15s}
+.hero:hover{border-color:var(--accent)}
+.hero p{margin:6px 0 0;color:var(--mute)}
+.btn{font:700 15px var(--font);min-height:48px;padding:0 20px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.dng{color:var(--absent)}
+.btn.sm{min-height:40px;padding:0 14px;font-size:14px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input,select,textarea{font:500 16px var(--font);width:100%;min-height:48px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+textarea{min-height:80px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.bar input{flex:1;min-width:180px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.row:first-child{border-top:0}
+.row .nm{font-weight:700;flex:1;min-width:140px}
+.row .meta{color:var(--mute);font-size:14px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:420px}
+.seg button{min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:10px;font:700 13px var(--font);cursor:pointer}
+.seg button.on[data-s=Present]{background:var(--present);border-color:var(--present)}
+.seg button.on[data-s=Absent]{background:var(--absent);border-color:var(--absent)}
+.seg button.on[data-s=Late]{background:var(--late);border-color:var(--late)}
+.seg button.on[data-s=Excused]{background:var(--excused);border-color:var(--excused)}
+.seg button.on{color:#fff}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;border:1px solid currentColor}
+.Present,.Paid{color:var(--present)}.Absent,.Unpaid{color:var(--absent)}.Late,.Partial{color:var(--late)}.Excused{color:var(--excused)}.Unmarked{color:var(--mute)}
+.badge{padding:4px 12px;border-radius:999px;font-weight:700;font-size:13px;border:1px solid currentColor}
+.prog{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:12px 0}
+.prog i{display:block;height:100%;background:var(--accent)}
+.big{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.pay{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed var(--line);font-size:15px;flex-wrap:wrap}
+.pay span:first-child{flex:1}
+.empty{text-align:center;color:var(--mute);padding:28px 8px}
+dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);width:min(440px,calc(100% - 32px));padding:22px;font-family:var(--font)}
+dialog::backdrop{background:rgba(10,10,30,.5)}
+.dfoot{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+#toast.show{opacity:1}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}.wrap{padding:0 14px 80px}header .wrap{padding:10px 14px}.btn{flex:1}.row .acts .btn{flex:0 1 auto}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.print-only{display:none}
+@media print{
+@page{size:A4;margin:14mm}
+html,body{background:#fff!important;color:#000!important;font-size:11pt}
+header.top,.noprint,#toast,dialog,body::before{display:none!important}
+.wrap{max-width:none;padding:0;margin:0}
+.print-only{display:block;color:#000;background:#fff;font-family:system-ui,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.print-only h1{font-size:20pt;margin:0 0 2mm;letter-spacing:0}
+.print-only p{margin:0 0 2mm;color:#333;font-size:10pt}
+.print-only table{width:100%;border-collapse:collapse;margin-top:5mm}
+.print-only .sum td{border:1px solid #999;padding:2mm 3mm;width:25%;font-size:9pt;color:#333}
+.print-only .sum b{display:block;font-size:13pt;color:#000}
+.print-only .lst th{background:#eee;text-align:left;border:1px solid #999;padding:2mm 3mm;font-size:10pt}
+.print-only .lst td{border:1px solid #bbb;padding:2mm 3mm;font-size:10.5pt}
+.print-only .lst th:first-child,.print-only .lst td:first-child{width:10mm;text-align:center}
+.print-only .r{text-align:right;font-variant-numeric:tabular-nums}
+.print-only thead{display:table-header-group}
+.print-only tr{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+<a class="brand" href="#home">Sheet, Singil!</a>
+<nav id="nav"></nav>
+</div></header>
+<main class="wrap" id="app"></main>
+<dialog id="dlg"><form id="dlgForm"><h2 id="dlgT"></h2><div id="dlgB"></div>
+<div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
+<div id="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+/* ---------- Data layer: all Supabase code lives here ---------- */
+const TABLES=['students','attendance','contributions','payments'];
+const COL={attendance:{savedAt:'saved_at'},contributions:{appliesTo:'applies_to'},payments:{contributionId:'contribution_id',studentId:'student_id'}};
+const S={students:[],attendance:[],contributions:[],payments:[]};
+const synced={};let sb=null,user=null,queue=Promise.resolve();
+const toDb=(k,r)=>{const o={user_id:user.id};for(const f in r){const v=r[f];o[(COL[k]||{})[f]||f]=(f==='due'&&!v)?null:v}return o};
+const fromDb=(k,r)=>{const rev=Object.fromEntries(Object.entries(COL[k]||{}).map(([a,b])=>[b,a])),o={};
+  for(const f in r){if(f==='user_id'||f==='created_at')continue;o[rev[f]||f]=r[f]}
+  if('amount' in o)o.amount=+o.amount;if('due' in o)o.due=o.due||'';return o};
+/* save(k) diffs a collection against what the database has, then upserts/deletes. */
+function save(k){queue=queue.then(async()=>{
+  const map=synced[k]||(synced[k]=new Map()),ids=new Set(S[k].map(r=>r.id));
+  const up=S[k].filter(r=>map.get(r.id)!==JSON.stringify(r));
+  const del=[...map.keys()].filter(id=>!ids.has(id));
+  if(up.length){const{error}=await sb.from(k).upsert(up.map(r=>toDb(k,r)));if(error)throw error;up.forEach(r=>map.set(r.id,JSON.stringify(r)))}
+  if(del.length){const{error}=await sb.from(k).delete().in('id',del);if(error)throw error;del.forEach(id=>map.delete(id))}
+}).catch(e=>{toast('Could not sync: '+(e.message||e));console.error(e)})}
+async function loadAll(){
+  const res=await Promise.all(TABLES.map(k=>sb.from(k).select('*')));
+  res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,JSON.stringify(x)]))});
+}
+async function start(u){user=u;try{await loadAll();loadDraft()}catch(e){toast('Could not load data: '+e.message)}render()}
+async function boot(){
+  const c=window.SINGIL_CONFIG||{};
+  if(!c.url||c.url.includes('YOUR_')){$('#app').innerHTML='<div class="card"><h2>Connect Supabase</h2><p class="sub">Open config.js and add your Supabase project URL and anon key.</p></div>';return}
+  sb=supabase.createClient(c.url,c.anonKey);
+  sb.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT'){user=null;TABLES.forEach(k=>S[k]=[]);render()}});
+  const{data}=await sb.auth.getSession();
+  if(data.session)start(data.session.user);else render();
+}
+
+/* ---------- Helpers ---------- */
+const $=s=>document.querySelector(s);
+const uid=()=>crypto.randomUUID();
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const peso=n=>'₱'+(+n).toLocaleString('en-PH',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmt=d=>d?new Date(d+'T00:00').toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric',year:'numeric'}):'No due date';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const byName=(a,b)=>a.name.localeCompare(b.name);
+const STAT=['Present','Absent','Late','Excused'];
+let ui={q:'',date:today(),marks:{},open:{}};
+let dlgFn=null;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
+function modal(title,body,ok,fn){$('#dlgT').textContent=title;$('#dlgB').innerHTML=body;$('#dlgOk').textContent=ok;dlgFn=fn;$('#dlg').showModal();const i=$('#dlg input,#dlg textarea');if(i&&i.type!=='hidden')i.focus()}
+$('#dlgForm').onsubmit=e=>{e.preventDefault();if(dlgFn(new FormData(e.target))!==false){$('#dlg').close();render()}};
+$('#dlgNo').onclick=()=>$('#dlg').close();
+const confirmBox=(t,msg,ok,fn)=>modal(t,`<p>${msg}</p>`,ok,()=>{fn();toast('Done')});
+const match=s=>s.name.toLowerCase().includes(ui.q.trim().toLowerCase());
+const empty=t=>`<div class="empty">${t}</div>`;
+const searchBar=ph=>`<div class="bar"><input id="q" type="search" placeholder="${ph}" value="${esc(ui.q)}" aria-label="${ph}" autocomplete="off"></div>`;
+
+/* ---------- Domain logic ---------- */
+function payInfo(c,sid){
+  const list=S.payments.filter(p=>p.contributionId===c.id&&p.studentId===sid).sort((a,b)=>a.date.localeCompare(b.date));
+  const paid=list.reduce((t,p)=>t+p.amount,0),bal=Math.max(0,c.amount-paid);
+  return{list,paid,bal,status:paid>=c.amount?'Paid':paid>0?'Partial':'Unpaid'};
+}
+function cStats(c){
+  const r={collected:0,Paid:0,Partial:0,Unpaid:0,expected:c.amount*S.students.length};
+  S.students.forEach(s=>{const i=payInfo(c,s.id);r.collected+=i.paid;r[i.status]++});
+  return r;
+}
+function attCounts(marks,ids){const r={Present:0,Absent:0,Late:0,Excused:0,Unmarked:0};ids.forEach(id=>r[marks[id]||'Unmarked']++);return r}
+const chips=r=>Object.entries(r).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<span class="chip ${k}">${k}: ${v}</span>`).join('');
+function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=rec?{...rec.marks}:{}}
+
+/* ---------- Views ---------- */
+const views={
+login(){return `<h1>Sheet, Singil!</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
+home(){
+  const c=S.contributions.length;
+  return `<h1>Good to see you</h1><p class="sub">${S.students.length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
+  <div class="grid2">
+   <a class="card hero" href="#attendance"><h2>Attendance</h2><p>Take attendance in seconds, then review past records.</p></a>
+   <a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>
+  </div>
+  <a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or remove students.</p></a>`;
+},
+students(){
+  const list=S.students.filter(match).sort(byName);
+  return `<h1>Students</h1><p class="sub">This list is shared by Attendance and Treasurer.</p>
+  <form class="card bar" data-form="addStudent" style="margin-bottom:14px"><input name="name" placeholder="Student name" required aria-label="Student name" autocomplete="off"><button class="btn pri">Add student</button><button type="button" class="btn" data-act="bulk">Bulk add</button></form>
+  ${S.students.length>6?searchBar('Search students'):''}
+  <div class="card">${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="acts"><button class="btn sm" data-act="editStudent" data-id="${s.id}">Edit</button><button class="btn sm dng" data-act="delStudent" data-id="${s.id}">Remove</button></div></div>`).join(''):empty(S.students.length?'No student matches your search.':'No students yet. Add your first student above.')}</div>`;
+},
+attendance(){
+  const list=S.students.filter(match).sort(byName);
+  const r=attCounts(ui.marks,S.students.map(s=>s.id));
+  return `<h1>Attendance</h1><p class="sub">Tap a status for each student, then save.</p>
+  <div class="card"><div class="bar"><div style="flex:1;min-width:160px"><label for="dt" style="margin:0 0 6px">Date</label><input id="dt" type="date" value="${ui.date}"></div>
+  <button class="btn pri" data-act="allPresent" style="align-self:flex-end">Mark all present</button></div>
+  <div class="chips">${chips(r)}</div>${searchBar('Search students')}
+  ${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="seg">${STAT.map(t=>`<button data-act="mark" data-id="${s.id}" data-s="${t}" class="${ui.marks[s.id]===t?'on':''}" aria-pressed="${ui.marks[s.id]===t}">${t}</button>`).join('')}</div></div>`).join(''):empty(S.students.length?'No student matches your search.':'Add students first to take attendance.')}
+  </div>
+  <div class="bar"><button class="btn pri" data-act="saveAtt">Save attendance</button><a class="btn" href="#history">View history</a></div>`;
+},
+history(){
+  const recs=[...S.attendance].sort((a,b)=>b.date.localeCompare(a.date));
+  return `<h1>Attendance history</h1><p class="sub">Saved records, newest first.</p>
+  ${recs.length?recs.map(a=>{const ids=Object.keys(a.names);const r=attCounts(a.marks,ids),o=ui.open[a.id];
+   return `<div class="card"><h2>${fmt(a.date)}</h2><div class="chips" style="margin:10px 0">${chips(r)}</div>
+   <div class="acts"><button class="btn sm" data-act="toggle" data-id="${a.id}">${o?'Hide':'View'} details</button><button class="btn sm" data-act="editRec" data-id="${a.id}">Edit</button><button class="btn sm dng" data-act="delRec" data-id="${a.id}">Delete</button></div>
+   ${o?`<div style="margin-top:10px">${ids.sort((x,y)=>a.names[x].localeCompare(a.names[y])).map(id=>`<div class="row"><span class="nm">${esc(a.names[id])}</span><span class="badge ${a.marks[id]||'Unmarked'}">${a.marks[id]||'Unmarked'}</span></div>`).join('')}</div>`:''}</div>`}).join(''):`<div class="card">${empty('No attendance saved yet.')}</div>`}
+  <a class="btn" href="#attendance">Back to attendance</a>`;
+},
+treasurer(){
+  const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
+  return `<h1>Treasurer</h1><p class="sub">Each contribution applies to the entire class.</p>
+  <div class="bar"><button class="btn pri" data-act="newC">New contribution</button></div>
+  ${cs.length?cs.map(c=>{const t=cStats(c),pct=t.expected?Math.min(100,t.collected/t.expected*100):0;
+   const late=c.due&&c.due<today()&&t.Paid<S.students.length;
+   return `<a class="card hero" href="#c/${c.id}" style="display:block"><h2>${esc(c.name)}</h2><div class="meta" style="color:var(--mute);font-size:14px">${peso(c.amount)} per student · Due ${fmt(c.due)}${late?' · <b class="Unpaid">Overdue</b>':''}</div>
+   <div class="prog"><i style="width:${pct}%"></i></div><div class="big">${peso(t.collected)} <span class="meta" style="font-size:15px;font-weight:600;color:var(--mute)">of ${peso(t.expected)}</span></div>
+   <div class="chips" style="margin:10px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partial: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div></a>`}).join(''):`<div class="card">${empty('No contributions yet. Create one to start collecting.')}</div>`}`;
+},
+contribution(id){
+  const c=S.contributions.find(x=>x.id===id);if(!c)return `<h1>Not found</h1><a class="btn" href="#treasurer">Back</a>`;
+  const t=cStats(c),list=S.students.filter(match).sort(byName);
+  return `<div class="noprint"><p style="margin:20px 0 0"><a href="#treasurer" style="color:var(--accent);font-weight:700;text-decoration:none">‹ All contributions</a></p>
+  <h1 style="margin-top:8px">${esc(c.name)}</h1><p class="sub">${peso(c.amount)} per student · Due ${fmt(c.due)}${c.notes?'<br>'+esc(c.notes):''}</p>
+  <div class="card"><div class="big">${peso(t.collected)} <span style="font-size:15px;font-weight:600;color:var(--mute)">collected of ${peso(t.expected)}</span></div>
+  <div class="chips" style="margin:12px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partially paid: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div>
+  <div class="acts" style="margin-top:14px"><button class="btn sm pri" data-act="print">Print records</button><button class="btn sm dng" data-act="delC" data-id="${c.id}">Delete contribution</button></div></div>
+  ${searchBar('Search students')}
+  <div class="card">${list.length?list.map(s=>{const i=payInfo(c,s.id),o=ui.open[c.id+s.id];
+   return `<div class="row" style="align-items:flex-start"><div class="nm"><div>${esc(s.name)}</div><div class="meta">Required ${peso(c.amount)} · Paid ${peso(i.paid)} · Balance ${peso(i.bal)}</div></div>
+   <span class="badge ${i.status}">${i.status}</span>
+   <div class="acts"><button class="btn sm pri" data-act="pay" data-c="${c.id}" data-id="${s.id}">Record payment</button><button class="btn sm" data-act="toggle" data-id="${c.id+s.id}">History (${i.list.length})</button></div>
+   ${o?`<div style="width:100%">${i.list.length?i.list.map(p=>`<div class="pay"><span>${fmt(p.date)}</span><b>${peso(p.amount)}</b><button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm dng" data-act="delPay" data-id="${p.id}">Delete</button></div>`).join(''):'<div class="meta" style="padding:8px 0">No payments yet.</div>'}</div>`:''}</div>`}).join(''):empty(S.students.length?'No student matches your search.':'Add students first, then payments will appear here.')}</div></div>${printSheet(c,t)}`;
+}};
+
+function printSheet(c,t){
+  const rows=[...S.students].sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
+  const out=rows.reduce((a,r)=>a+r.i.bal,0);
+  return `<section class="print-only"><h1>${esc(c.name)}</h1>
+  <p>Payment records · Due ${fmt(c.due)} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
+  <table class="sum"><tr><td>Required per student<b>${peso(c.amount)}</b></td><td>Total collected<b>${peso(t.collected)}</b></td><td>Expected total<b>${peso(t.expected)}</b></td><td>Outstanding<b>${peso(out)}</b></td></tr>
+  <tr><td>Paid<b>${t.Paid}</b></td><td>Partially paid<b>${t.Partial}</b></td><td>Unpaid<b>${t.Unpaid}</b></td><td>Students<b>${rows.length}</b></td></tr></table>
+  <table class="lst"><thead><tr><th>#</th><th>Student</th><th class="r">Required</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${rows.map((r,n)=>`<tr><td>${n+1}</td><td>${esc(r.s.name)}</td><td class="r">${peso(c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td>${r.i.status==='Partial'?'Partially paid':r.i.status}</td></tr>`).join('')}</tbody></table></section>`}
+
+/* ---------- Bulk add helpers ---------- */
+function parseNames(txt){
+  const seen=new Set(S.students.map(s=>s.name.trim().toLowerCase())),fresh=[],dups=[];
+  txt.split(/\r?\n/).forEach(l=>{const n=l.replace(/^\s*(\d+[.)]|[-•*])\s+/,'').replace(/\s+/g,' ').trim();if(!n)return;
+    const k=n.toLowerCase();if(seen.has(k))dups.push(n);else{seen.add(k);fresh.push(n)}});
+  return{fresh,dups}}
+function bulkPreview(txt){
+  const{fresh,dups}=parseNames(txt);
+  $('#bp').innerHTML=fresh.length||dups.length?`<p class="meta" style="color:var(--mute);margin:10px 0 4px">${fresh.length} new${dups.length?', '+dups.length+' skipped as duplicate':''}</p><div style="max-height:200px;overflow:auto">`+fresh.map((n,i)=>`<div class="pay"><span>${i+1}. ${esc(n)}</span></div>`).join('')+dups.map(n=>`<div class="pay"><span class="Unmarked">${esc(n)}</span><span class="badge Late">Duplicate</span></div>`).join('')+'</div>':'<p class="meta" style="color:var(--mute)">Your preview will appear here.</p>';
+  $('#dlgOk').textContent=fresh.length?`Add ${fresh.length} student${fresh.length>1?'s':''}`:'Add students'}
+
+/* ---------- Router & render ---------- */
+function route(){const h=location.hash.slice(1)||'home';return h.startsWith('c/')?['contribution',h.slice(2)]:[views[h]?h:'home']}
+function render(){
+  const keep=document.activeElement&&document.activeElement.id==='q';
+  if(!sb)return;
+  if(!user){$('#app').innerHTML=views.login();$('#nav').innerHTML='';return}
+  const[v,arg]=route();
+  $('#app').innerHTML=views[v](arg);
+  const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer'}[v];
+  $('#nav').innerHTML=[['home','Home'],['students','Students'],['attendance','Attendance'],['treasurer','Treasurer']].map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('')+'<a role="button" tabindex="0" data-act="signout" style="cursor:pointer">Sign out</a>';
+  if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+}
+window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){ui.date=today();loadDraft()}render();window.scrollTo(0,0)});
+
+/* ---------- Actions ---------- */
+const nameForm=(v='')=>`<label for="n">Student name</label><input id="n" name="name" value="${esc(v)}" required autocomplete="off">`;
+const dateAmt=(a,d)=>`<label for="a">Amount (₱)</label><input id="a" name="amount" type="number" min="0.01" step="0.01" value="${a}" required><label for="d">Date</label><input id="d" name="date" type="date" value="${d}" required>`;
+const acts={
+  print(){window.print()},
+  bulk(){modal('Bulk add students','<p class="meta" style="color:var(--mute);margin:0">Paste one name per line. Blank lines, extra spaces and duplicates are cleaned up for you.</p><label for="bt">Student names</label><textarea id="bt" name="names" style="min-height:160px" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Pedro Reyes"></textarea><div id="bp"></div>','Add students',f=>{
+    const{fresh}=parseNames(f.get('names'));if(!fresh.length){toast('No new names to add');return false}
+    fresh.forEach(n=>S.students.push({id:uid(),name:n}));save('students');toast(fresh.length+' student'+(fresh.length>1?'s':'')+' added')});bulkPreview('')},
+  async signin(){const f=$('#lf');const{data,error}=await sb.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});if(error)return toast(error.message);start(data.user)},
+  async signup(){const f=$('#lf');if(!f.reportValidity())return;const{data,error}=await sb.auth.signUp({email:f.email.value.trim(),password:f.password.value});if(error)return toast(error.message);if(data.session)start(data.user);else toast('Check your email to confirm, then sign in')},
+  async signout(){await sb.auth.signOut()},
+  allPresent(){S.students.forEach(s=>ui.marks[s.id]='Present');render()},
+  mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
+  saveAtt(){
+    if(!S.students.length)return toast('Add students first');
+    const names={};S.students.forEach(s=>names[s.id]=s.name);
+    const rec={id:uid(),date:ui.date,marks:{...ui.marks},names,savedAt:new Date().toISOString()};
+    const i=S.attendance.findIndex(a=>a.date===ui.date);if(i>=0)rec.id=S.attendance[i].id,S.attendance[i]=rec;else S.attendance.push(rec);
+    save('attendance');toast('Attendance saved for '+fmt(ui.date));
+  },
+  toggle({id}){ui.open[id]=!ui.open[id];render()},
+  editRec({id}){const a=S.attendance.find(x=>x.id===id);ui.date=a.date;ui.marks={...a.marks};location.hash='attendance'},
+  delRec({id}){confirmBox('Delete record?','This attendance record will be permanently removed.','Delete',()=>{S.attendance=S.attendance.filter(a=>a.id!==id);save('attendance')})},
+  editStudent({id}){const s=S.students.find(x=>x.id===id);modal('Edit student',nameForm(s.name),'Save changes',f=>{const n=f.get('name').trim();if(!n)return false;if(S.students.some(x=>x.id!==id&&x.name.toLowerCase()===n.toLowerCase())){toast('That name is already in the list');return false}s.name=n;save('students');toast('Student updated')})},
+  delStudent({id}){const s=S.students.find(x=>x.id===id);confirmBox('Remove student?',`${esc(s.name)} and their payments will be removed. Past attendance records keep the name.`,'Remove',()=>{S.students=S.students.filter(x=>x.id!==id);S.payments=S.payments.filter(p=>p.studentId!==id);delete ui.marks[id];save('students');save('payments')})},
+  newC(){modal('New contribution',`<label for="cn">Contribution name</label><input id="cn" name="name" required placeholder="e.g. Field trip fee"><label for="ca">Required amount per student (₱)</label><input id="ca" name="amount" type="number" min="0.01" step="0.01" required><label for="cd">Due date</label><input id="cd" name="due" type="date"><label for="cs">Applies to</label><select id="cs" disabled><option>Entire class (${S.students.length} students)</option></select><label for="cx">Notes (optional)</label><textarea id="cx" name="notes"></textarea>`,'Create contribution',f=>{
+    const name=f.get('name').trim(),amount=parseFloat(f.get('amount'));if(!name||!(amount>0))return false;
+    const c={id:uid(),name,amount,due:f.get('due'),notes:f.get('notes').trim(),appliesTo:'class',created:today()};
+    S.contributions.push(c);save('contributions');toast('Contribution created');location.hash='c/'+c.id;return true})},
+  delC({id}){confirmBox('Delete contribution?','All payments recorded for it will also be deleted.','Delete',()=>{S.contributions=S.contributions.filter(c=>c.id!==id);S.payments=S.payments.filter(p=>p.contributionId!==id);save('contributions');save('payments');location.hash='treasurer'})},
+  pay({c,id}){const con=S.contributions.find(x=>x.id===c),s=S.students.find(x=>x.id===id),i=payInfo(con,id);
+    modal('Payment · '+s.name,`<p class="meta" style="color:var(--mute)">Balance: ${peso(i.bal)}</p>`+dateAmt(i.bal||'',today()),'Save payment',f=>{
+      const amount=parseFloat(f.get('amount'));if(!(amount>0))return false;
+      S.payments.push({id:uid(),contributionId:c,studentId:id,amount,date:f.get('date')});save('payments');toast('Payment recorded')})},
+  editPay({id}){const p=S.payments.find(x=>x.id===id);modal('Edit payment',dateAmt(p.amount,p.date),'Save changes',f=>{
+    const amount=parseFloat(f.get('amount'));if(!(amount>0))return false;p.amount=amount;p.date=f.get('date');save('payments');toast('Payment updated')})},
+  delPay({id}){confirmBox('Delete payment?','This payment will be removed from the history.','Delete',()=>{S.payments=S.payments.filter(p=>p.id!==id);save('payments')})}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b)acts[b.dataset.act](b.dataset)});
+document.addEventListener('input',e=>{
+  if(e.target.id==='q'){ui.q=e.target.value;render()}
+  if(e.target.id==='bt')bulkPreview(e.target.value);
+  if(e.target.id==='dt'&&e.target.value){ui.date=e.target.value;loadDraft();render()}
+});
+document.addEventListener('submit',e=>{
+  if(e.target.dataset.form==='login'){e.preventDefault();acts.signin()}
+  if(e.target.dataset.form==='addStudent'){e.preventDefault();const n=e.target.name.value.trim();
+    if(n){if(S.students.some(x=>x.name.toLowerCase()===n.toLowerCase()))return toast('Already in the list: '+n);S.students.push({id:uid(),name:n});save('students');toast('Student added');render();$('[name=name]').focus()}}
+});
+boot();
+</script>
+</body>
+</html>
