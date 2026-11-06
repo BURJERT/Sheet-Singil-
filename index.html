@@ -106,17 +106,21 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 .st tr{page-break-inside:avoid}
 .sumwrap .badge{border:0;color:#000!important;padding:0;font-weight:600}
 }
+#sync{font-size:13px;font-weight:700;color:var(--mute)}
+#sync button{font:inherit;color:var(--absent);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
 <a class="brand" href="#home">Sheet, Singil!</a>
+<span id="sync" role="status"></span>
 <nav id="nav"></nav>
 </div></header>
 <main class="wrap" id="app"></main>
 <dialog id="dlg"><form id="dlgForm"><h2 id="dlgT"></h2><div id="dlgB"></div>
 <div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
 <div id="toast" role="status"></div>
+<input type="file" id="rf" accept="application/json,.json" hidden>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
@@ -129,25 +133,45 @@ const toDb=(k,r)=>{const o={user_id:user.id};for(const f in r){const v=r[f];o[(C
 const fromDb=(k,r)=>{const rev=Object.fromEntries(Object.entries(COL[k]||{}).map(([a,b])=>[b,a])),o={};
   for(const f in r){if(f==='user_id'||f==='created_at')continue;o[rev[f]||f]=r[f]}
   if('amount' in o)o.amount=+o.amount;if('due' in o)o.due=o.due||'';return o};
-/* save(k) diffs a collection against what the database has, then upserts/deletes. */
-function save(k){queue=queue.then(async()=>{
-  const map=synced[k]||(synced[k]=new Map()),ids=new Set(S[k].map(r=>r.id));
-  const up=S[k].filter(r=>map.get(r.id)!==JSON.stringify(r));
-  const del=[...map.keys()].filter(id=>!ids.has(id));
-  if(up.length){const{error}=await sb.from(k).upsert(up.map(r=>toDb(k,r)));if(error)throw error;up.forEach(r=>map.set(r.id,JSON.stringify(r)))}
-  for(let i=0;i<del.length;i+=50){const part=del.slice(i,i+50);const{error}=await sb.from(k).delete().in('id',part);if(error)throw error;part.forEach(id=>map.delete(id))}
-}).catch(e=>{toast('Could not sync: '+(e.message||e));console.error(e)})}
-async function loadAll(){
+let role=null,pending=0,failed=false,everSaved=false;
+const CAN={admin:{att:1,tre:1,stu:1,adm:1},attendance:{att:1},treasurer:{tre:1}};
+const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre'};
+const can=k=>!!(role&&CAN[role]&&CAN[role][k]);
+const roster=()=>S.students.filter(s=>!s.inactive);
+function setSync(){const e=$('#sync');if(!e)return;
+  e.innerHTML=failed?'<span style="color:var(--absent)">Not saved</span> <button data-act="retry">Retry</button>':pending?'Saving…':everSaved?'Saved':''}
+/* save(k) diffs a collection against what the database has, then deletes/upserts. */
+function save(k){pending++;everSaved=true;setSync();
+  queue=queue.then(async()=>{
+    const map=synced[k]||(synced[k]=new Map()),ids=new Set(S[k].map(r=>r.id));
+    const del=[...map.keys()].filter(id=>!ids.has(id));
+    for(let i=0;i<del.length;i+=50){const part=del.slice(i,i+50);const{error}=await sb.from(k).delete().in('id',part);if(error)throw error;part.forEach(id=>map.delete(id))}
+    const up=S[k].filter(r=>map.get(r.id)!==JSON.stringify(r));
+    if(up.length){const{error}=await sb.from(k).upsert(up.map(r=>toDb(k,r)));if(error)throw error;up.forEach(r=>map.set(r.id,JSON.stringify(r)))}
+  }).catch(e=>{failed=true;toast('Could not save. Check your connection, then tap Retry.');console.error(e)}).then(()=>{pending--;setSync()})}
+async function loadAll(initial){
   const res=await Promise.all(TABLES.map(k=>sb.from(k).select('*')));
+  if(!initial&&pending)return;
   res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,JSON.stringify(x)]))});
 }
-async function start(u,home){user=u;try{await loadAll();loadDraft()}catch(e){toast('Could not load data: '+e.message)}if(home)location.hash='home';render()}
+async function loadRole(){
+  const{data,error}=await sb.from('roles').select('role').eq('user_id',user.id).maybeSingle();
+  if(error){if(/does not exist|schema cache|relation/i.test(error.message)){role='admin';return}throw error}
+  role=data?data.role:null;
+}
+async function start(u,home){user=u;try{await loadRole();if(role)await loadAll(true);loadDraft()}catch(e){toast('Could not load data: '+e.message)}if(home)location.hash='home';render()}
+/* Pull other devices' changes when the tab is reopened or every minute (never while saving or typing). */
+async function refresh(){
+  if(!user||!role||pending||failed||document.querySelector('dialog[open]'))return;
+  const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;
+  try{await loadAll();render()}catch(e){}
+}
 async function boot(){
   const c=window.SINGIL_CONFIG||{};
   if(!c.url||c.url.includes('YOUR_')){$('#app').innerHTML='<div class="card"><h2>Connect Supabase</h2><p class="sub">Open config.js and add your Supabase project URL and anon key.</p></div>';return}
   let base=c.url.trim();try{base=new URL(base).origin}catch(e){}
   sb=supabase.createClient(base,c.anonKey.trim());
-  sb.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT'){user=null;TABLES.forEach(k=>S[k]=[]);render()}});
+  sb.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT'){user=null;role=null;TABLES.forEach(k=>S[k]=[]);render()}});
   const{data}=await sb.auth.getSession();
   if(data.session)start(data.session.user);else render();
 }
@@ -181,8 +205,8 @@ function payInfo(c,sid){
   return{list,paid,bal,status:paid>=c.amount?'Paid':paid>0?'Partial':'Unpaid'};
 }
 function cStats(c){
-  const r={collected:0,Paid:0,Partial:0,Unpaid:0,expected:c.amount*S.students.length};
-  S.students.forEach(s=>{const i=payInfo(c,s.id);r.collected+=i.paid;r[i.status]++});
+  const r={collected:S.payments.filter(p=>p.contributionId===c.id).reduce((t,p)=>t+p.amount,0),Paid:0,Partial:0,Unpaid:0,expected:c.amount*roster().length};
+  roster().forEach(s=>{r[payInfo(c,s.id).status]++});
   return r;
 }
 function attCounts(marks,ids){const r={Present:0,Absent:0,Late:0,Excused:0,Unmarked:0};ids.forEach(id=>r[marks[id]||'Unmarked']++);return r}
@@ -191,28 +215,30 @@ function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=r
 
 /* ---------- Views ---------- */
 const views={
+noaccess(){return `<h1>No access yet</h1><p class="sub">This account doesn’t have a role.</p><div class="card"><p style="margin:0 0 14px">Signed in as ${esc(user.email)}. Ask the admin to give this account a role (admin, attendance or treasurer), then refresh the page.</p><button class="btn dng" data-act="signout">Sign out</button></div>`},
 login(){return `<h1>${esc(ABOUT.site)}</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0"></p><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
 home(){
   const c=S.contributions.length;
-  return `<h1>Good to see you</h1><p class="sub">${S.students.length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
+  return `<h1>Good to see you</h1><p class="sub">${roster().length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
   <div class="grid2">
-   <a class="card hero" href="#attendance"><h2>Attendance</h2><p>Take attendance in seconds, then review past records.</p></a>
-   <a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>
+   ${can('att')?`<a class="card hero" href="#attendance"><h2>Attendance</h2><p>Take attendance in seconds, then review past records.</p></a>`:''}
+   ${can('tre')?`<a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>`:''}
   </div>
-  <a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or remove students.</p></a>
-  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px"><div style="flex:1;min-width:180px"><h2>New semester</h2><p class="sub" style="margin:0">Clear attendance, contributions and payments to start fresh.</p></div><button class="btn" data-act="newSem">Start new semester</button></div>
-  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}</p></div><button class="btn dng" data-act="signout">Sign out</button></div>`;
+  ${can('stu')?`<a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or archive students.</p></a>`:''}
+  ${can('adm')?`<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px"><div style="flex:1;min-width:180px"><h2>Backup</h2><p class="sub" style="margin:0">Save a copy of all your data, or load one back in.</p></div><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>New semester</h2><p class="sub" style="margin:0">Clear attendance, contributions and payments to start fresh.</p></div><button class="btn" data-act="newSem">Start new semester</button></div>`:''}
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}${role?' · '+role:''}</p></div><button class="btn dng" data-act="signout">Sign out</button></div>`;
 },
 students(){
-  const list=S.students.filter(match).sort(byName);
+  const list=roster().filter(match).sort(byName),ina=S.students.filter(s=>s.inactive&&match(s)).sort(byName);
   return `<h1>Students</h1><p class="sub">This list is shared by Attendance and Treasurer.</p>
   <form class="card bar" data-form="addStudent" style="margin-bottom:14px"><input name="name" placeholder="Student name" required aria-label="Student name" autocomplete="off"><button class="btn pri">Add student</button><button type="button" class="btn" data-act="bulk">Bulk add</button></form>
   ${S.students.length>6?searchBar('Search students'):''}
-  <div class="card">${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="acts"><button class="btn sm" data-act="editStudent" data-id="${s.id}">Edit</button><button class="btn sm dng" data-act="delStudent" data-id="${s.id}">Remove</button></div></div>`).join(''):empty(S.students.length?'No student matches your search.':'No students yet. Add your first student above.')}</div>`;
+  <div class="card">${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="acts"><button class="btn sm" data-act="editStudent" data-id="${s.id}">Edit</button><button class="btn sm" data-act="archive" data-id="${s.id}">Archive</button></div></div>`).join(''):empty(roster().length?'No student matches your search.':'No students yet. Add your first student above.')}</div>${ina.length?`<h2 style="margin:24px 0 4px">Archived (${ina.length})</h2><p class="sub">Hidden from attendance and payments. Their records are kept.</p><div class="card">${ina.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="acts"><button class="btn sm" data-act="restoreStudent" data-id="${s.id}">Restore</button><button class="btn sm dng" data-act="delStudent" data-id="${s.id}">Delete permanently</button></div></div>`).join('')}</div>`:''}`;
 },
 attendance(){
-  const list=S.students.filter(match).sort(byName);
-  const r=attCounts(ui.marks,S.students.map(s=>s.id));
+  const list=roster().filter(match).sort(byName);
+  const r=attCounts(ui.marks,roster().map(s=>s.id));
   return `<h1>Attendance</h1><p class="sub">Tap a status for each student, then save.</p>
   <div class="card"><div class="bar"><div style="flex:1;min-width:160px"><label for="dt" style="margin:0 0 6px">Date</label><input id="dt" type="date" value="${ui.date}"></div>
   <button class="btn pri" data-act="allPresent" style="align-self:flex-end">Mark all present</button></div>
@@ -235,17 +261,17 @@ treasurer(){
   return `<h1>Treasurer</h1><p class="sub">Each contribution applies to the entire class.</p>
   <div class="bar"><button class="btn pri" data-act="newC">New contribution</button><a class="btn" href="#summary">Full summary</a></div>
   ${act.length?act.map(c=>{const t=cStats(c),pct=t.expected?Math.min(100,t.collected/t.expected*100):0;
-   const late=c.due&&c.due<today()&&t.Paid<S.students.length;
+   const late=c.due&&c.due<today()&&t.Paid<roster().length;
    return `<a class="card hero" href="#c/${c.id}" style="display:block"><h2>${esc(c.name)}</h2><div class="meta" style="color:var(--mute);font-size:14px">${peso(c.amount)} per student · Due ${fmt(c.due)}${late?' · <b class="Unpaid">Overdue</b>':''}</div>
    <div class="prog"><i style="width:${pct}%"></i></div><div class="big">${peso(t.collected)} <span class="meta" style="font-size:15px;font-weight:600;color:var(--mute)">of ${peso(t.expected)}</span></div>
    <div class="chips" style="margin:10px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partial: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div></a>`}).join(''):`<div class="card">${empty(cs.length?'All contributions are complete.':'No contributions yet. Create one to start collecting.')}</div>`}
   ${dn.length?`<h2 style="margin:28px 0 4px">Completed (${dn.length})</h2><p class="sub">Paid in full by everyone. Remove them to keep your list clean.</p>${dn.map(c=>`<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:160px"><h2>${esc(c.name)}</h2><div style="color:var(--mute);font-size:14px">${peso(cStats(c).collected)} collected · <b class="Paid">Complete</b></div></div><a class="btn sm" href="#c/${c.id}">View</a><button class="btn sm dng" data-act="delC" data-id="${c.id}">Remove</button></div>`).join('')}<button class="btn dng" data-act="delDone">Remove all completed</button>`:''}`;
 },
 summary(){
-  const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')),sts=[...S.students].sort(byName);
+  const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')),sts=roster().sort(byName);
   if(ui.fc!=='all'&&!cs.some(c=>c.id===ui.fc))ui.fc='all';
   const tot={coll:0,out:0,Paid:0,Partial:0,Unpaid:0};
-  cs.forEach(c=>sts.forEach(s=>{const i=payInfo(c,s.id);tot.coll+=i.paid;tot.out+=i.bal;tot[i.status]++}));
+  cs.forEach(c=>{tot.coll+=cStats(c).collected;sts.forEach(s=>{const i=payInfo(c,s.id);tot.out+=i.bal;tot[i.status]++})});
   const q=ui.q.trim().toLowerCase();
   const groups=cs.filter(c=>ui.fc==='all'||c.id===ui.fc).map(c=>({c,t:cStats(c),rows:sts.filter(s=>!q||s.name.toLowerCase().includes(q)).map(s=>({s,i:payInfo(c,s.id)})).filter(r=>ui.fs==='all'||r.i.status===ui.fs)})).filter(g=>g.rows.length);
   const all=groups.flatMap(g=>g.rows),shown=all.length,fpaid=all.reduce((a,r)=>a+r.i.paid,0),fbal=all.reduce((a,r)=>a+r.i.bal,0);
@@ -279,7 +305,7 @@ about(){
 },
 contribution(id){
   const c=S.contributions.find(x=>x.id===id);if(!c)return `<h1>Not found</h1><a class="btn" href="#treasurer">Back</a>`;
-  const t=cStats(c),list=S.students.filter(match).sort(byName);
+  const t=cStats(c),list=roster().filter(match).sort(byName);
   return `<div class="noprint"><p style="margin:20px 0 0"><a href="#treasurer" style="color:var(--accent);font-weight:700;text-decoration:none">‹ All contributions</a></p>
   <h1 style="margin-top:8px">${esc(c.name)}</h1><p class="sub">${peso(c.amount)} per student · Due ${fmt(c.due)}${c.notes?'<br>'+esc(c.notes):''}</p>
   <div class="card"><div class="big">${peso(t.collected)} <span style="font-size:15px;font-weight:600;color:var(--mute)">collected of ${peso(t.expected)}</span></div>
@@ -293,9 +319,9 @@ contribution(id){
    ${o?`<div style="width:100%">${i.list.length?i.list.map(p=>`<div class="pay"><span>${fmt(p.date)}</span><b>${peso(p.amount)}</b><button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm dng" data-act="delPay" data-id="${p.id}">Delete</button></div>`).join(''):'<div class="meta" style="padding:8px 0">No payments yet.</div>'}</div>`:''}</div>`}).join(''):empty(S.students.length?'No student matches your search.':'Add students first, then payments will appear here.')}</div></div>${printSheet(c,t)}`;
 }};
 
-const isDone=c=>S.students.length>0&&cStats(c).Paid===S.students.length;
+const isDone=c=>roster().length>0&&cStats(c).Paid===roster().length;
 function printSheet(c,t){
-  const rows=[...S.students].sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
+  const rows=roster().sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
   const out=rows.reduce((a,r)=>a+r.i.bal,0);
   return `<section class="print-only"><h1>${esc(c.name)}</h1>
   <p>Payment records · Due ${fmt(c.due)} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
@@ -320,10 +346,11 @@ function render(){
   const keep=document.activeElement&&document.activeElement.id==='q';
   if(!sb)return;
   if(!user){$('#app').innerHTML=views.login();$('#nav').innerHTML='';return}
-  const[v,arg]=route();
+  if(!role){$('#app').innerHTML=views.noaccess();$('#nav').innerHTML='';return}
+  let[v,arg]=route();if(NEED[v]&&!can(NEED[v]))v='home';
   $('#app').innerHTML=views[v](arg);
   const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer',summary:'treasurer',about:'about'}[v];
-  $('#nav').innerHTML=[['home','Home'],['students','Students'],['attendance','Attendance'],['treasurer','Treasurer'],['about','About']].map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('');
+  $('#nav').innerHTML=[['home','Home'],['students','Students','stu'],['attendance','Attendance','att'],['treasurer','Treasurer','tre'],['about','About']].filter(x=>!x[2]||can(x[2])).map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('');
   if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
 }
 window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){ui.date=today();loadDraft()}render();window.scrollTo(0,0)});
@@ -334,6 +361,10 @@ const dateAmt=(a,d)=>`<label for="a">Amount (₱)</label><input id="a" name="amo
 const lm=t=>{const e=$('#lm');if(e){e.textContent=t;e.style.color=/^(Signing|Creating|Account)/.test(t)?'var(--mute)':'var(--absent)'}};
 const authMsg=e=>/confirm/i.test(e.message)?'Email not confirmed. In Supabase, open Authentication > Users and confirm this user, or turn off "Confirm email".':/invalid login/i.test(e.message)?'Wrong email or password. If you created this user in Supabase, make sure it was auto-confirmed.':e.message;
 const acts={
+  archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
+  restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},
+  restore(){$('#rf').click()},
+  retry(){failed=false;TABLES.forEach(save);toast('Retrying…')},
   backup(){const b=new Blob([JSON.stringify({exported:today(),students:S.students,attendance:S.attendance,contributions:S.contributions,payments:S.payments},null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='sheet-singil-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
   newSem(){modal('Start a new semester',`<p style="margin:0 0 12px">This permanently removes all <b>attendance records, contributions and payments</b>.</p>
@@ -358,11 +389,11 @@ const acts={
       if(error)return lm(authMsg(error));
       if(data.session)start(data.user,true);else lm('Account created. Check your email to confirm it, then sign in.')}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
   signout(){modal('Sign out','<p>Are you sure you want to sign out?</p>','Sign out',()=>{sb.auth.signOut()})},
-  allPresent(){S.students.forEach(s=>ui.marks[s.id]='Present');render()},
+  allPresent(){roster().forEach(s=>ui.marks[s.id]='Present');render()},
   mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
   saveAtt(){
-    if(!S.students.length)return toast('Add students first');
-    const names={};S.students.forEach(s=>names[s.id]=s.name);
+    if(!roster().length)return toast('Add students first');
+    const names={};roster().forEach(s=>names[s.id]=s.name);
     const rec={id:uid(),date:ui.date,marks:{...ui.marks},names,savedAt:new Date().toISOString()};
     const i=S.attendance.findIndex(a=>a.date===ui.date);if(i>=0)rec.id=S.attendance[i].id,S.attendance[i]=rec;else S.attendance.push(rec);
     save('attendance');toast('Attendance saved for '+fmt(ui.date));
@@ -371,7 +402,7 @@ const acts={
   editRec({id}){const a=S.attendance.find(x=>x.id===id);ui.date=a.date;ui.marks={...a.marks};location.hash='attendance'},
   delRec({id}){confirmBox('Delete record?','This attendance record will be permanently removed.','Delete',()=>{S.attendance=S.attendance.filter(a=>a.id!==id);save('attendance')})},
   editStudent({id}){const s=S.students.find(x=>x.id===id);modal('Edit student',nameForm(s.name),'Save changes',f=>{const n=f.get('name').trim();if(!n)return false;if(S.students.some(x=>x.id!==id&&x.name.toLowerCase()===n.toLowerCase())){toast('That name is already in the list');return false}s.name=n;save('students');toast('Student updated')})},
-  delStudent({id}){const s=S.students.find(x=>x.id===id);confirmBox('Remove student?',`${esc(s.name)} and their payments will be removed. Past attendance records keep the name.`,'Remove',()=>{S.students=S.students.filter(x=>x.id!==id);S.payments=S.payments.filter(p=>p.studentId!==id);delete ui.marks[id];save('students');save('payments')})},
+  delStudent({id}){const s=S.students.find(x=>x.id===id);confirmBox('Remove student?',`${esc(s.name)} and all their payments will be permanently deleted. Archiving keeps the records. Past attendance records keep the name.`,'Remove',()=>{S.students=S.students.filter(x=>x.id!==id);S.payments=S.payments.filter(p=>p.studentId!==id);delete ui.marks[id];save('students');save('payments')})},
   newC(){modal('New contribution',`<label for="cn">Contribution name</label><input id="cn" name="name" required placeholder="e.g. Field trip fee"><label for="ca">Required amount per student (₱)</label><input id="ca" name="amount" type="number" min="0.01" step="0.01" required><label for="cd">Due date</label><input id="cd" name="due" type="date"><label for="cs">Applies to</label><select id="cs" disabled><option>Entire class (${S.students.length} students)</option></select><label for="cx">Notes (optional)</label><textarea id="cx" name="notes"></textarea>`,'Create contribution',f=>{
     const name=f.get('name').trim(),amount=parseFloat(f.get('amount'));if(!name||!(amount>0))return false;
     const c={id:uid(),name,amount,due:f.get('due'),notes:f.get('notes').trim(),appliesTo:'class',created:today()};
@@ -398,6 +429,23 @@ document.addEventListener('submit',e=>{
   if(e.target.dataset.form==='addStudent'){e.preventDefault();const n=e.target.name.value.trim();
     if(n){if(S.students.some(x=>x.name.toLowerCase()===n.toLowerCase()))return toast('Already in the list: '+n);S.students.push({id:uid(),name:n});save('students');toast('Student added');render();$('[name=name]').focus()}}
 });
+function restoreData(d){
+  const sid=new Set(d.students.map(x=>x.id)),cid=new Set(d.contributions.map(x=>x.id));
+  S.students=d.students;S.contributions=d.contributions;S.attendance=d.attendance;
+  S.payments=d.payments.filter(p=>sid.has(p.studentId)&&cid.has(p.contributionId));
+  ['students','contributions','payments','attendance'].forEach(save);ui.marks={};loadDraft();toast('Backup restored');
+}
+$('#rf').addEventListener('change',async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const d=JSON.parse(await f.text());
+    if(!['students','attendance','contributions','payments'].every(k=>Array.isArray(d[k])))throw 0;
+    modal('Restore backup?',`<p style="margin:0 0 10px">Backup from <b>${esc(d.exported||'unknown date')}</b>: ${d.students.length} students, ${d.attendance.length} attendance records, ${d.contributions.length} contributions, ${d.payments.length} payments.</p><p style="margin:0"><b>This replaces all current data.</b> Download a backup of your current data first if you may need it.</p>`,'Restore',()=>restoreData(d));
+  }catch(err){toast('That file is not a valid backup')}
+});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+setInterval(refresh,60000);
+window.addEventListener('online',()=>{if(failed)acts.retry();else refresh()});
+window.addEventListener('beforeunload',e=>{if(pending||failed){e.preventDefault();e.returnValue=''}});
 boot();
 </script>
 </body>
