@@ -130,7 +130,8 @@ async function start(u){user=u;try{await loadAll();loadDraft()}catch(e){toast('C
 async function boot(){
   const c=window.SINGIL_CONFIG||{};
   if(!c.url||c.url.includes('YOUR_')){$('#app').innerHTML='<div class="card"><h2>Connect Supabase</h2><p class="sub">Open config.js and add your Supabase project URL and anon key.</p></div>';return}
-  sb=supabase.createClient(c.url,c.anonKey);
+  let base=c.url.trim();try{base=new URL(base).origin}catch(e){}
+  sb=supabase.createClient(base,c.anonKey.trim());
   sb.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT'){user=null;TABLES.forEach(k=>S[k]=[]);render()}});
   const{data}=await sb.auth.getSession();
   if(data.session)start(data.session.user);else render();
