@@ -12,5 +12,5 @@ window.SINGIL_ABOUT = {
   site: 'Sheet, Singil!',
   by: 'Precious Angel N. Ignacio',
   project: 'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',
-  message: 'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'
+  message: 'Thank you for using this classroom management system. Wala lang ememe ko lang tu. Vibe code lang rin, i just put my idea into prompt then boom ni compile ko shah at ayon Sheet, Singil!'
 };
