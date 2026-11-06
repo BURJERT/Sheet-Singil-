@@ -91,6 +91,21 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 .print-only thead{display:table-header-group}
 .print-only tr{page-break-inside:avoid}
 }
+.st{width:100%;border-collapse:collapse;margin-top:12px;min-width:480px}
+.st th,.st td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:15px}
+.st th{color:var(--mute);font-weight:700;font-size:13px}
+.st .r{text-align:right;font-variant-numeric:tabular-nums}
+@media print{
+.sumwrap .card{border:0!important;background:#fff!important;color:#000!important;padding:0!important;margin:0 0 8mm!important}
+.sumwrap h2{color:#000;font-size:13pt;margin:0}
+.sumwrap div{overflow:visible!important}
+.st{min-width:0;margin-top:2mm}
+.st th,.st td{border:1px solid #bbb;color:#000;padding:2mm 3mm;font-size:10pt}
+.st th{background:#eee}
+.st thead{display:table-header-group}
+.st tr{page-break-inside:avoid}
+.sumwrap .badge{border:0;color:#000!important;padding:0;font-weight:600}
+}
 </style>
 </head>
 <body>
@@ -146,7 +161,9 @@ const fmt=d=>d?new Date(d+'T00:00').toLocaleDateString('en-PH',{weekday:'short',
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const byName=(a,b)=>a.name.localeCompare(b.name);
 const STAT=['Present','Absent','Late','Excused'];
-let ui={q:'',date:today(),marks:{},open:{}};
+let ui={q:'',date:today(),marks:{},open:{},fc:'all',fs:'all'};
+const ABOUT=Object.assign({site:'Sheet, Singil!',by:'[Your Name]',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
+document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
 function modal(title,body,ok,fn){$('#dlgT').textContent=title;$('#dlgB').innerHTML=body;$('#dlgOk').textContent=ok;dlgFn=fn;$('#dlg').showModal();const i=$('#dlg input,#dlg textarea');if(i&&i.type!=='hidden')i.focus()}
@@ -174,7 +191,7 @@ function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=r
 
 /* ---------- Views ---------- */
 const views={
-login(){return `<h1>Sheet, Singil!</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0"></p><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
+login(){return `<h1>${esc(ABOUT.site)}</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0"></p><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
 home(){
   const c=S.contributions.length;
   return `<h1>Good to see you</h1><p class="sub">${S.students.length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
@@ -182,7 +199,8 @@ home(){
    <a class="card hero" href="#attendance"><h2>Attendance</h2><p>Take attendance in seconds, then review past records.</p></a>
    <a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>
   </div>
-  <a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or remove students.</p></a>`;
+  <a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or remove students.</p></a>
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}</p></div><button class="btn dng" data-act="signout">Sign out</button></div>`;
 },
 students(){
   const list=S.students.filter(match).sort(byName);
@@ -214,12 +232,45 @@ history(){
 treasurer(){
   const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
   return `<h1>Treasurer</h1><p class="sub">Each contribution applies to the entire class.</p>
-  <div class="bar"><button class="btn pri" data-act="newC">New contribution</button></div>
+  <div class="bar"><button class="btn pri" data-act="newC">New contribution</button><a class="btn" href="#summary">Full summary</a></div>
   ${cs.length?cs.map(c=>{const t=cStats(c),pct=t.expected?Math.min(100,t.collected/t.expected*100):0;
    const late=c.due&&c.due<today()&&t.Paid<S.students.length;
    return `<a class="card hero" href="#c/${c.id}" style="display:block"><h2>${esc(c.name)}</h2><div class="meta" style="color:var(--mute);font-size:14px">${peso(c.amount)} per student · Due ${fmt(c.due)}${late?' · <b class="Unpaid">Overdue</b>':''}</div>
    <div class="prog"><i style="width:${pct}%"></i></div><div class="big">${peso(t.collected)} <span class="meta" style="font-size:15px;font-weight:600;color:var(--mute)">of ${peso(t.expected)}</span></div>
    <div class="chips" style="margin:10px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partial: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div></a>`}).join(''):`<div class="card">${empty('No contributions yet. Create one to start collecting.')}</div>`}`;
+},
+summary(){
+  const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')),sts=[...S.students].sort(byName);
+  if(ui.fc!=='all'&&!cs.some(c=>c.id===ui.fc))ui.fc='all';
+  const tot={coll:0,out:0,Paid:0,Partial:0,Unpaid:0};
+  cs.forEach(c=>sts.forEach(s=>{const i=payInfo(c,s.id);tot.coll+=i.paid;tot.out+=i.bal;tot[i.status]++}));
+  const q=ui.q.trim().toLowerCase();
+  const groups=cs.filter(c=>ui.fc==='all'||c.id===ui.fc).map(c=>({c,t:cStats(c),rows:sts.filter(s=>!q||s.name.toLowerCase().includes(q)).map(s=>({s,i:payInfo(c,s.id)})).filter(r=>ui.fs==='all'||r.i.status===ui.fs)})).filter(g=>g.rows.length);
+  const all=groups.flatMap(g=>g.rows),shown=all.length,fpaid=all.reduce((a,r)=>a+r.i.paid,0),fbal=all.reduce((a,r)=>a+r.i.bal,0);
+  const fname=ui.fc==='all'?'All contributions':esc(cs.find(c=>c.id===ui.fc).name),flab=ui.fs==='all'?'All statuses':ui.fs==='Partial'?'Partially paid':ui.fs;
+  const body=groups.length?groups.map(g=>`<div class="card"><h2>${esc(g.c.name)}</h2><div style="color:var(--mute);font-size:14px">${peso(g.c.amount)} per student · Due ${fmt(g.c.due)} · Collected ${peso(g.t.collected)} of ${peso(g.t.expected)}</div><div style="overflow-x:auto"><table class="st"><thead><tr><th>Student</th><th class="r">Required</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${g.rows.map(r=>`<tr><td>${esc(r.s.name)}</td><td class="r">${peso(g.c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td><span class="badge ${r.i.status}">${r.i.status}</span></td></tr>`).join('')}</tbody></table></div><p class="noprint" style="margin:12px 0 0"><a href="#c/${g.c.id}" style="color:var(--accent);font-weight:700;text-decoration:none">Open to record payments ›</a></p></div>`).join(''):`<div class="card">${empty(!cs.length?'No contributions yet. Create one in Treasurer.':'No records match your filters.')}</div>`;
+  return `<div class="noprint"><p style="margin:20px 0 0"><a href="#treasurer" style="color:var(--accent);font-weight:700;text-decoration:none">‹ Treasurer</a></p>
+  <h1 style="margin-top:8px">Full summary</h1><p class="sub">Every contribution and every student’s payments in one place.</p>
+  <div class="card"><div class="grid2" style="gap:20px"><div><div style="color:var(--mute);font-size:14px">Total collected</div><div class="big">${peso(tot.coll)}</div></div><div><div style="color:var(--mute);font-size:14px">Outstanding balance</div><div class="big">${peso(tot.out)}</div></div></div>
+  <div class="chips" style="margin:14px 0 0"><span class="chip Paid">Paid: ${tot.Paid}</span><span class="chip Partial">Partially paid: ${tot.Partial}</span><span class="chip Unpaid">Unpaid: ${tot.Unpaid}</span></div>
+  <p style="color:var(--mute);font-size:14px;margin:10px 0 0">${cs.length} contribution${cs.length===1?'':'s'}, ${sts.length} student${sts.length===1?'':'s'}. Counts are per student, per contribution.</p></div>
+  <div class="bar"><input id="q" type="search" placeholder="Search students" value="${esc(ui.q)}" aria-label="Search students" autocomplete="off">
+  <select id="fc" aria-label="Filter by contribution" style="flex:1;min-width:160px"><option value="all">All contributions</option>${cs.map(c=>`<option value="${c.id}"${ui.fc===c.id?' selected':''}>${esc(c.name)}</option>`).join('')}</select>
+  <select id="fs" aria-label="Filter by status" style="flex:1;min-width:140px">${[['all','All statuses'],['Paid','Paid'],['Partial','Partially paid'],['Unpaid','Unpaid']].map(([v,l])=>`<option value="${v}"${ui.fs===v?' selected':''}>${l}</option>`).join('')}</select>
+  <button class="btn pri" data-act="print">Print summary</button></div>
+  <p style="color:var(--mute);font-size:14px;margin:0 0 14px">Showing ${shown} record${shown===1?'':'s'} · Paid ${peso(fpaid)} · Balance ${peso(fbal)}</p></div>
+  <section class="print-only"><h1>Full payment summary</h1><p>${esc(ABOUT.site)} · Printed ${fmt(today())}</p><p>Filter: ${fname} · ${flab}${q?' · Search “'+esc(ui.q.trim())+'”':''}</p>
+  <table class="sum"><tr><td>Total collected<b>${peso(tot.coll)}</b></td><td>Outstanding balance<b>${peso(tot.out)}</b></td><td>Contributions<b>${cs.length}</b></td><td>Students<b>${sts.length}</b></td></tr>
+  <tr><td>Paid<b>${tot.Paid}</b></td><td>Partially paid<b>${tot.Partial}</b></td><td>Unpaid<b>${tot.Unpaid}</b></td><td>Records shown<b>${shown}</b></td></tr></table></section>
+  <div class="sumwrap">${body}</div>`;
+},
+about(){
+  const p='margin:8px 0 0;max-width:65ch;line-height:1.7';
+  return `<h1>About</h1><p class="sub">Who made this and why.</p>
+  <div class="card"><div style="color:var(--mute);font-size:14px">Website name</div><div class="big">${esc(ABOUT.site)}</div>
+  <div style="color:var(--mute);font-size:14px;margin-top:16px">Created by</div><div class="big">${esc(ABOUT.by)}</div></div>
+  <div class="card"><h2>About the project</h2><p style="${p}">${esc(ABOUT.project)}</p></div>
+  <div class="card"><h2>Message to users</h2><p style="${p};border-left:4px solid var(--accent);padding-left:16px">${esc(ABOUT.message)}</p></div>`;
 },
 contribution(id){
   const c=S.contributions.find(x=>x.id===id);if(!c)return `<h1>Not found</h1><a class="btn" href="#treasurer">Back</a>`;
@@ -265,8 +316,8 @@ function render(){
   if(!user){$('#app').innerHTML=views.login();$('#nav').innerHTML='';return}
   const[v,arg]=route();
   $('#app').innerHTML=views[v](arg);
-  const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer'}[v];
-  $('#nav').innerHTML=[['home','Home'],['students','Students'],['attendance','Attendance'],['treasurer','Treasurer']].map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('')+'<a role="button" tabindex="0" data-act="signout" style="cursor:pointer">Sign out</a>';
+  const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer',summary:'treasurer',about:'about'}[v];
+  $('#nav').innerHTML=[['home','Home'],['students','Students'],['attendance','Attendance'],['treasurer','Treasurer'],['about','About']].map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('');
   if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
 }
 window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){ui.date=today();loadDraft()}render();window.scrollTo(0,0)});
@@ -288,7 +339,7 @@ const acts={
     try{const{data,error}=await sb.auth.signUp({email:f.email.value.trim(),password:f.password.value});
       if(error)return lm(authMsg(error));
       if(data.session)start(data.user);else lm('Account created. Check your email to confirm it, then sign in.')}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
-  async signout(){await sb.auth.signOut()},
+  signout(){modal('Sign out','<p>Are you sure you want to sign out?</p>','Sign out',()=>{sb.auth.signOut()})},
   allPresent(){S.students.forEach(s=>ui.marks[s.id]='Present');render()},
   mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
   saveAtt(){
@@ -320,6 +371,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 document.addEventListener('input',e=>{
   if(e.target.id==='q'){ui.q=e.target.value;render()}
   if(e.target.id==='bt')bulkPreview(e.target.value);
+  if(e.target.id==='fc'){ui.fc=e.target.value;render()}
+  if(e.target.id==='fs'){ui.fs=e.target.value;render()}
   if(e.target.id==='dt'&&e.target.value){ui.date=e.target.value;loadDraft();render()}
 });
 document.addEventListener('submit',e=>{
