@@ -102,7 +102,7 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 <dialog id="dlg"><form id="dlgForm"><h2 id="dlgT"></h2><div id="dlgB"></div>
 <div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
 <div id="toast" role="status"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.79.0/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
 /* ---------- Data layer: all Supabase code lives here ---------- */
@@ -173,7 +173,7 @@ function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=r
 
 /* ---------- Views ---------- */
 const views={
-login(){return `<h1>Sheet, Singil!</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
+login(){return `<h1>Sheet, Singil!</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0"></p><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
 home(){
   const c=S.contributions.length;
   return `<h1>Good to see you</h1><p class="sub">${S.students.length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
@@ -273,13 +273,20 @@ window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){
 /* ---------- Actions ---------- */
 const nameForm=(v='')=>`<label for="n">Student name</label><input id="n" name="name" value="${esc(v)}" required autocomplete="off">`;
 const dateAmt=(a,d)=>`<label for="a">Amount (₱)</label><input id="a" name="amount" type="number" min="0.01" step="0.01" value="${a}" required><label for="d">Date</label><input id="d" name="date" type="date" value="${d}" required>`;
+const lm=t=>{const e=$('#lm');if(e){e.textContent=t;e.style.color=/^(Signing|Creating|Account)/.test(t)?'var(--mute)':'var(--absent)'}};
+const authMsg=e=>/confirm/i.test(e.message)?'Email not confirmed. In Supabase, open Authentication > Users and confirm this user, or turn off "Confirm email".':/invalid login/i.test(e.message)?'Wrong email or password. If you created this user in Supabase, make sure it was auto-confirmed.':e.message;
 const acts={
   print(){window.print()},
   bulk(){modal('Bulk add students','<p class="meta" style="color:var(--mute);margin:0">Paste one name per line. Blank lines, extra spaces and duplicates are cleaned up for you.</p><label for="bt">Student names</label><textarea id="bt" name="names" style="min-height:160px" placeholder="Juan Dela Cruz&#10;Maria Santos&#10;Pedro Reyes"></textarea><div id="bp"></div>','Add students',f=>{
     const{fresh}=parseNames(f.get('names'));if(!fresh.length){toast('No new names to add');return false}
     fresh.forEach(n=>S.students.push({id:uid(),name:n}));save('students');toast(fresh.length+' student'+(fresh.length>1?'s':'')+' added')});bulkPreview('')},
-  async signin(){const f=$('#lf');const{data,error}=await sb.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});if(error)return toast(error.message);start(data.user)},
-  async signup(){const f=$('#lf');if(!f.reportValidity())return;const{data,error}=await sb.auth.signUp({email:f.email.value.trim(),password:f.password.value});if(error)return toast(error.message);if(data.session)start(data.user);else toast('Check your email to confirm, then sign in')},
+  async signin(){const f=$('#lf');lm('Signing in…');
+    try{const{data,error}=await sb.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});
+      if(error)return lm(authMsg(error));start(data.user)}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
+  async signup(){const f=$('#lf');if(!f.reportValidity())return;lm('Creating account…');
+    try{const{data,error}=await sb.auth.signUp({email:f.email.value.trim(),password:f.password.value});
+      if(error)return lm(authMsg(error));
+      if(data.session)start(data.user);else lm('Account created. Check your email to confirm it, then sign in.')}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
   async signout(){await sb.auth.signOut()},
   allPresent(){S.students.forEach(s=>ui.marks[s.id]='Present');render()},
   mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
