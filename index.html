@@ -141,7 +141,7 @@ async function loadAll(){
   const res=await Promise.all(TABLES.map(k=>sb.from(k).select('*')));
   res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,JSON.stringify(x)]))});
 }
-async function start(u){user=u;try{await loadAll();loadDraft()}catch(e){toast('Could not load data: '+e.message)}render()}
+async function start(u,home){user=u;try{await loadAll();loadDraft()}catch(e){toast('Could not load data: '+e.message)}if(home)location.hash='home';render()}
 async function boot(){
   const c=window.SINGIL_CONFIG||{};
   if(!c.url||c.url.includes('YOUR_')){$('#app').innerHTML='<div class="card"><h2>Connect Supabase</h2><p class="sub">Open config.js and add your Supabase project URL and anon key.</p></div>';return}
@@ -162,7 +162,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const byName=(a,b)=>a.name.localeCompare(b.name);
 const STAT=['Present','Absent','Late','Excused'];
 let ui={q:'',date:today(),marks:{},open:{},fc:'all',fs:'all'};
-const ABOUT=Object.assign({site:'Sheet, Singil!',by:'[Your Name]',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
+const ABOUT=Object.assign({site:'Sheet, Singil!',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
 document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -265,10 +265,13 @@ summary(){
   <div class="sumwrap">${body}</div>`;
 },
 about(){
-  const p='margin:8px 0 0;max-width:65ch;line-height:1.7';
+  const p='margin:8px 0 0;max-width:65ch;line-height:1.7',ini=ABOUT.by.replace(/[\[\]]/g,'').split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
   return `<h1>About</h1><p class="sub">Who made this and why.</p>
-  <div class="card"><div style="color:var(--mute);font-size:14px">Website name</div><div class="big">${esc(ABOUT.site)}</div>
-  <div style="color:var(--mute);font-size:14px;margin-top:16px">Created by</div><div class="big">${esc(ABOUT.by)}</div></div>
+  <div class="card" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+  <div style="position:relative;width:120px;height:120px;flex:none;border-radius:50%;overflow:hidden;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:36px">${esc(ini)}${ABOUT.photo?`<img src="${esc(ABOUT.photo)}" alt="Photo of ${esc(ABOUT.by)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div>
+  <div style="flex:1;min-width:220px"><div style="color:var(--mute);font-size:14px">Website name</div><div class="big">${esc(ABOUT.site)}</div>
+  <div style="color:var(--mute);font-size:14px;margin-top:14px">Created by</div><div class="big">${esc(ABOUT.by)}</div>
+  ${/^https?:\/\//.test(ABOUT.portfolio||'')?`<a class="btn pri" href="${esc(ABOUT.portfolio)}" target="_blank" rel="noopener" style="margin-top:18px">View portfolio</a>`:''}</div></div>
   <div class="card"><h2>About the project</h2><p style="${p}">${esc(ABOUT.project)}</p></div>
   <div class="card"><h2>Message to users</h2><p style="${p};border-left:4px solid var(--accent);padding-left:16px">${esc(ABOUT.message)}</p></div>`;
 },
@@ -334,11 +337,11 @@ const acts={
     fresh.forEach(n=>S.students.push({id:uid(),name:n}));save('students');toast(fresh.length+' student'+(fresh.length>1?'s':'')+' added')});bulkPreview('')},
   async signin(){const f=$('#lf');lm('Signing in…');
     try{const{data,error}=await sb.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});
-      if(error)return lm(authMsg(error));start(data.user)}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
+      if(error)return lm(authMsg(error));start(data.user,true)}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
   async signup(){const f=$('#lf');if(!f.reportValidity())return;lm('Creating account…');
     try{const{data,error}=await sb.auth.signUp({email:f.email.value.trim(),password:f.password.value});
       if(error)return lm(authMsg(error));
-      if(data.session)start(data.user);else lm('Account created. Check your email to confirm it, then sign in.')}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
+      if(data.session)start(data.user,true);else lm('Account created. Check your email to confirm it, then sign in.')}catch(e){lm('Could not reach Supabase. Check the URL and key in config.js.')}},
   signout(){modal('Sign out','<p>Are you sure you want to sign out?</p>','Sign out',()=>{sb.auth.signOut()})},
   allPresent(){S.students.forEach(s=>ui.marks[s.id]='Present');render()},
   mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
