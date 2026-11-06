@@ -134,7 +134,7 @@ const fromDb=(k,r)=>{const rev=Object.fromEntries(Object.entries(COL[k]||{}).map
   for(const f in r){if(f==='user_id'||f==='created_at')continue;o[rev[f]||f]=r[f]}
   if('amount' in o)o.amount=+o.amount;if('due' in o)o.due=o.due||'';return o};
 let role=null,pending=0,failed=false,everSaved=false;
-const CAN={admin:{att:1,tre:1,stu:1,adm:1},attendance:{att:1},treasurer:{tre:1}};
+const CAN={admin:{att:1,tre:1,stu:1,adm:1},officer:{att:1,tre:1}};
 const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre'};
 const can=k=>!!(role&&CAN[role]&&CAN[role][k]);
 const roster=()=>S.students.filter(s=>!s.inactive);
@@ -215,7 +215,7 @@ function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=r
 
 /* ---------- Views ---------- */
 const views={
-noaccess(){return `<h1>No access yet</h1><p class="sub">This account doesn’t have a role.</p><div class="card"><p style="margin:0 0 14px">Signed in as ${esc(user.email)}. Ask the admin to give this account a role (admin, attendance or treasurer), then refresh the page.</p><button class="btn dng" data-act="signout">Sign out</button></div>`},
+noaccess(){return `<h1>No access yet</h1><p class="sub">This account doesn’t have a role.</p><div class="card"><p style="margin:0 0 14px">Signed in as ${esc(user.email)}. Ask the admin to give this account a role (admin or officer), then refresh the page.</p><button class="btn dng" data-act="signout">Sign out</button></div>`},
 login(){return `<h1>${esc(ABOUT.site)}</h1><p class="sub">Sign in to open your class.</p><form class="card" id="lf" data-form="login" style="max-width:420px"><label for="em">Email</label><input id="em" name="email" type="email" required autocomplete="email"><label for="pw">Password</label><input id="pw" name="password" type="password" minlength="6" required autocomplete="current-password"><p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0"></p><div class="dfoot" style="justify-content:stretch"><button type="button" class="btn" data-act="signup">Create account</button><button class="btn pri">Sign in</button></div></form>`},
 home(){
   const c=S.contributions.length;
