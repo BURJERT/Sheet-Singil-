@@ -8,7 +8,7 @@ window.SINGIL_CONFIG = {
 // About page and website name. Edit these texts freely.
 window.SINGIL_ABOUT = {
   site: 'Sheet, Singil!',
-  by: 'Precious Angel',
+  by: 'Precious Angel N. Ignacio',
   photo: '8c874ed4-efc9-48ce-be2b-ab3ccb493b69.jpg',   // put your picture in the same folder with this file name
   portfolio: 'https://preciousangelnignacio-portfolio.vercel.app/',
   project: 'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',
