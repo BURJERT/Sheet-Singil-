@@ -1,10 +1,10 @@
 // Service worker: lets the site open without internet after one online visit.
 // Strategy: try the network first (so updates arrive), fall back to the saved copy when offline.
 // Supabase API calls are never touched here; offline data is handled inside index.html.
-const V = 'singil-v1';
+const V = 'singil-v4';
 const CORE = ['./', 'index.html', 'config.js', 'supabase.js', 'manifest.webmanifest', 'photo.jpg',
-  'fonts/plus-jakarta-sans.woff2', 'favicon/favicon.svg', 'favicon/favicon-32.png',
-  'favicon/apple-touch-icon.png', 'favicon/icon-192.png', 'favicon/icon-512.png'];
+  'fonts/plus-jakarta-sans.woff2', 'singil/singil-32.png', 'singil/singil.ico',
+  'singil/singil-180.png', 'singil/singil-192.png', 'singil/singil-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V)
