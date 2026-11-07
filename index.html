@@ -8,7 +8,7 @@
      Replace the files inside the /favicon folder with your own image (keep the same file names).
      Instructions: favicon/README.txt -->
 <link rel="icon" href="favicon/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="favicon/favicon-32.png." type="image/png" sizes="32x32">
+<link rel="icon" href="favicon/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
 <!-- ============ END FAVICON ============ -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -145,7 +145,7 @@ const fromDb=(k,r)=>{const rev=Object.fromEntries(Object.entries(COL[k]||{}).map
   if('amount' in o)o.amount=+o.amount;if('due' in o)o.due=o.due||'';return o};
 let role=null,pending=0,failed=false,everSaved=false,needsReconcile=false,conflicts=[],recovering=false,pendingAcct=false;
 const CAN={admin:{att:1,tre:1,stu:1,adm:1},officer:{att:1,tre:1}};
-const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre'};
+const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre',accounts:'adm'};
 const can=k=>!!(role&&CAN[role]&&CAN[role][k]);
 const roster=()=>S.students.filter(s=>!s.inactive);
 const ck=()=>'cm2_'+(user&&user.id);
@@ -159,7 +159,7 @@ function setSync(){const e=$('#sync');if(!e)return;
 /* Every change is written to this device first, then sent to Supabase when possible. */
 function persist(){if(!user)return;try{const sy={};TABLES.forEach(k=>sy[k]=[...(synced[k]||new Map())]);localStorage.setItem(ck(),JSON.stringify({S,sy,role,needs:needsReconcile,conf:conflicts}))}catch(e){}}
 function readCache(){try{return JSON.parse(localStorage.getItem(ck()))}catch(e){return null}}
-function applyCache(c){TABLES.forEach(k=>{S[k]=(c.S&&c.S[k])||[];synced[k]=new Map((c.sy&&c.sy[k])||[])});role='admin';needsReconcile=!!c.needs;conflicts=c.conf||[]}
+function applyCache(c){TABLES.forEach(k=>{S[k]=(c.S&&c.S[k])||[];synced[k]=new Map((c.sy&&c.sy[k])||[])});role=c.role;needsReconcile=!!c.needs;conflicts=c.conf||[]}
 function save(k){
   everSaved=true;persist();
   if(!navigator.onLine||needsReconcile||failed){needsReconcile=true;persist();setSync();if(navigator.onLine)syncSoon();return}
@@ -226,18 +226,24 @@ async function loadAll(initial){
   res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,sig(x)]))});
   needsReconcile=false;persist();
 }
+async function loadRole(){
+  const{data,error}=await sb.from('roles').select('role').eq('user_id',user.id).maybeSingle();
+  if(error){if(/does not exist|schema cache|relation/i.test(error.message)){role='admin';return}throw error}
+  role=data?data.role:null;if(role==='pending'){role=null;pendingAcct=true}
+}
 async function start(u,home){
-  user=u;role='admin';
-  try{localStorage.setItem('cm2_last',JSON.stringify({id:u.id,email:u.email,section:(u.user_metadata&&u.user_metadata.section_name)||u.section||''}))}catch(e){}
+  user=u;pendingAcct=false;
+  try{localStorage.setItem('cm2_last',JSON.stringify({id:u.id,email:u.email}))}catch(e){}
   const cached=readCache();let used=false;
   try{
     if(!navigator.onLine)throw new Error('offline');
-    {
+    await loadRole();
+    if(role){
       if(cached&&cached.needs){const r=role;applyCache(cached);used=true;role=r;await reconcile();needsReconcile=false;failed=false;persist()}
       else await loadAll(true);
     }
   }catch(e){
-    if(cached){if(!used)applyCache(cached);failed=navigator.onLine;toast(navigator.onLine?'Could not reach the server. Using data saved on this device.':'Offline mode: using the data saved on this device.')}
+    if(cached&&cached.role&&!pendingAcct){if(!used)applyCache(cached);failed=navigator.onLine;toast(navigator.onLine?'Could not reach the server. Using data saved on this device.':'Offline mode: using the data saved on this device.')}
     else toast(navigator.onLine?'Could not load data: '+e.message:'You are offline. Connect to the internet once to load your data.')
   }
   loadDraft();if(home)location.hash='home';render();
@@ -256,6 +262,11 @@ async function doSignOut(){
   Object.keys(localStorage).filter(k=>/^sb-.*-auth-token/.test(k)||k==='cm2_last'||k===key).forEach(k=>localStorage.removeItem(k));
   user=null;role=null;needsReconcile=false;failed=false;conflicts=[];TABLES.forEach(k=>{S[k]=[];synced[k]=new Map()});
   ui.auth='in';ui.authMsg='';history.replaceState(null,'',location.pathname);render();
+}
+async function loadAccounts(){
+  ui.accts=null;render();if(!navigator.onLine)return;
+  const{data,error}=await sb.from('roles').select('*');if(error){toast(error.message);return}
+  ui.accts=data.sort((a,b)=>(a.role==='pending'?0:1)-(b.role==='pending'?0:1)||(a.email||'').localeCompare(b.email||''));render();
 }
 async function boot(){
   const c=window.SINGIL_CONFIG||{};
@@ -314,33 +325,36 @@ const chips=r=>Object.entries(r).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=
 function loadDraft(){const rec=S.attendance.find(a=>a.date===ui.date);ui.marks=rec?{...rec.marks}:{}}
 
 /* ---------- Views ---------- */
-const sec=()=>user?((user.user_metadata&&user.user_metadata.section_name)||user.section||''):'';
 const notesCard=()=>conflicts.length?`<div class="card" style="margin-top:28px"><h2>Sync notes</h2><p class="sub" style="margin:0 0 10px">While syncing, these changes were merged so nothing was lost:</p>${conflicts.slice(-5).map(n=>`<div class="pay"><span>${esc(n.table)}: ${esc(NOTE[n.action])} (${esc(n.row.name||n.row.date||peso(n.row.amount||0))})</span></div>`).join('')}<div class="acts" style="margin-top:12px"><button class="btn sm" data-act="dismissNotes">Dismiss</button></div></div>`:'';
 const views={
+accounts(){const a=ui.accts;
+  return `<p style="margin:20px 0 0"><a href="#home" style="color:var(--accent);font-weight:700;text-decoration:none">‹ Home</a></p><h1 style="margin-top:8px">Accounts</h1><p class="sub">People who create an account wait here until you approve them.</p>
+  <div class="card">${!navigator.onLine?empty('Connect to the internet to manage accounts.'):!a?empty('Loading…'):a.length?a.map(x=>`<div class="row"><div class="nm"><div>${esc(x.email||'(no email)')}</div><div class="meta"><span class="badge ${x.role==='pending'?'Late':x.role==='officer'?'Present':'Excused'}">${x.role==='pending'?'waiting for approval':x.role}</span></div></div>${x.user_id===user.id?'<span class="meta">You</span>':x.role==='pending'?`<button class="btn sm pri" data-act="setRole" data-id="${x.user_id}" data-r="officer">Approve</button>`:x.role==='officer'?`<button class="btn sm dng" data-act="setRole" data-id="${x.user_id}" data-r="pending">Revoke access</button>`:''}</div>`).join(''):empty('No accounts yet.')}</div>`},
+noaccess(){return `<h1>${pendingAcct?'Waiting for approval':'No access yet'}</h1><p class="sub">${pendingAcct?'Your account was created.':'This account doesn’t have access.'}</p><div class="card"><p style="margin:0 0 14px">Signed in as ${esc(user.email)}. ${pendingAcct?'The admin needs to approve it before you can use the app.':'Ask the admin to approve this account. If you are offline, connect to the internet once so your data can load.'} Then tap Check again.</p><div class="acts"><button class="btn pri" data-act="recheck">Check again</button><button class="btn dng" data-act="signout">Sign out</button></div></div>`},
 login(){
-  const m=recovering?'reset':(ui.auth||'in'),sn='<label for="sn">Section name</label><input id="sn" name="section" maxlength="60" placeholder="e.g. BSIT 2-A" autocomplete="off">',em='<label for="em">Email</label><input id="em" name="email" type="email" autocomplete="email" inputmode="email">',
+  const m=recovering?'reset':(ui.auth||'in'),em='<label for="em">Email</label><input id="em" name="email" type="email" autocomplete="email" inputmode="email">',
     pw=(l,ac)=>`<label for="pw">${l}</label><input id="pw" name="password" type="password" autocomplete="${ac}">`,
     cf='<label for="cf">Confirm password</label><input id="cf" name="confirm" type="password" autocomplete="new-password">',
     hint='<p style="color:var(--mute);font-size:13px;margin:8px 0 0">At least 8 characters, with a letter and a number.</p>',
     L=(t,l)=>`<button type="button" class="lnk" data-act="auth" data-m="${t}">${l}</button>`;
   const M={
     in:['Sign in','Sign in to open your class.',em+pw('Password','current-password'),'Sign in',`<div style="display:flex;justify-content:space-between;flex-wrap:wrap;margin-top:10px">${L('forgot','Forgot password?')}${L('up','Create account')}</div>`],
-    up:['Create account','Create your own account and section. Your class data stays private to you.',sn+em+pw('Password','new-password')+hint+cf,'Create account',`<div style="margin-top:10px">Already have an account? ${L('in','Sign in')}</div>`],
+    up:['Create account','Create your own account. The admin approves new accounts before you can see class data.',em+pw('Password','new-password')+hint+cf,'Create account',`<div style="margin-top:10px">Already have an account? ${L('in','Sign in')}</div>`],
     forgot:['Reset password','Enter your email and we will send you a reset link.',em,'Send reset link',`<div style="margin-top:10px">${L('in','Back to sign in')}</div>`],
     reset:['Set a new password','Choose a new password for your account.',pw('New password','new-password')+hint+cf,'Update password',`<div style="margin-top:10px">${L('cancelReset','Cancel')}</div>`]}[m];
   return `<h1>${esc(ABOUT.site)}</h1><p class="sub">${M[1]}</p><form class="card" id="af" data-form="${m}" style="max-width:420px" novalidate><h2>${M[0]}</h2>${M[2]}<p id="lm" role="alert" style="color:var(--absent);font-weight:600;min-height:1.5em;margin:12px 0 0">${esc(ui.authMsg||'')}</p><div class="dfoot" style="justify-content:stretch"><button class="btn pri">${M[3]}</button></div>${M[4]}</form>`},
 home(){
   const c=S.contributions.length;
-  return `<h1>${esc(sec()||'Good to see you')}</h1><p class="sub">${roster().length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
+  return `<h1>Good to see you</h1><p class="sub">${roster().length} students · ${S.attendance.length} attendance records · ${c} contributions</p>
   <div class="grid2">
    ${can('att')?`<a class="card hero" href="#attendance"><h2>Attendance</h2><p>Take attendance in seconds, then review past records.</p></a>`:''}
    ${can('tre')?`<a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>`:''}
   </div>
   ${can('stu')?`<a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or archive students.</p></a>`:''}
-  ${can('adm')?`<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px"><div style="flex:1;min-width:180px"><h2>Backup</h2><p class="sub" style="margin:0">Save a copy of all your data, or load one back in.</p></div><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
+  ${can('adm')?`<a class="card hero" href="#accounts" style="margin-top:28px"><h2>Accounts</h2><p>Approve people who signed up, or remove their access.</p></a><div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Backup</h2><p class="sub" style="margin:0">Save a copy of all your data, or load one back in.</p></div><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
   <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>New semester</h2><p class="sub" style="margin:0">Clear attendance, contributions and payments to start fresh.</p></div><button class="btn" data-act="newSem">Start new semester</button></div>`:''}
   ${notesCard()}
-  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}</p></div><button class="btn" data-act="editSection">${sec()?'Edit section name':'Set section name'}</button><button class="btn dng" data-act="signout">Sign out</button></div>`;
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}${role?' · '+role:''}</p></div><button class="btn dng" data-act="signout">Sign out</button></div>`;
 },
 students(){
   const list=roster().filter(match).sort(byName),ina=S.students.filter(s=>s.inactive&&match(s)).sort(byName);
@@ -400,7 +414,7 @@ summary(){
   <select id="fs" aria-label="Filter by status" style="flex:1;min-width:140px">${[['all','All statuses'],['Paid','Paid'],['Partial','Partially paid'],['Unpaid','Unpaid']].map(([v,l])=>`<option value="${v}"${ui.fs===v?' selected':''}>${l}</option>`).join('')}</select>
   <button class="btn pri" data-act="print">Print summary</button></div>
   <p style="color:var(--mute);font-size:14px;margin:0 0 14px">Showing ${shown} record${shown===1?'':'s'} · Paid ${peso(fpaid)} · Balance ${peso(fbal)}</p></div>
-  <section class="print-only"><h1>Full payment summary</h1><p>${sec()?esc(sec())+' · ':''}${esc(ABOUT.site)} · Printed ${fmt(today())}</p><p>Filter: ${fname} · ${flab}${q?' · Search “'+esc(ui.q.trim())+'”':''}</p>
+  <section class="print-only"><h1>Full payment summary</h1><p>${esc(ABOUT.site)} · Printed ${fmt(today())}</p><p>Filter: ${fname} · ${flab}${q?' · Search “'+esc(ui.q.trim())+'”':''}</p>
   <table class="sum"><tr><td>Total collected<b>${peso(tot.coll)}</b></td><td>Outstanding balance<b>${peso(tot.out)}</b></td><td>Contributions<b>${cs.length}</b></td><td>Students<b>${sts.length}</b></td></tr>
   <tr><td>Paid<b>${tot.Paid}</b></td><td>Partially paid<b>${tot.Partial}</b></td><td>Unpaid<b>${tot.Unpaid}</b></td><td>Records shown<b>${shown}</b></td></tr></table></section>
   <div class="sumwrap">${body}</div>`;
@@ -437,7 +451,7 @@ function printSheet(c,t){
   const rows=roster().sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
   const out=rows.reduce((a,r)=>a+r.i.bal,0);
   return `<section class="print-only"><h1>${esc(c.name)}</h1>
-  <p>${sec()?esc(sec())+' · ':''}Payment records · Due ${fmt(c.due)} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
+  <p>Payment records · Due ${fmt(c.due)} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
   <table class="sum"><tr><td>Required per student<b>${peso(c.amount)}</b></td><td>Total collected<b>${peso(t.collected)}</b></td><td>Expected total<b>${peso(t.expected)}</b></td><td>Outstanding<b>${peso(out)}</b></td></tr>
   <tr><td>Paid<b>${t.Paid}</b></td><td>Partially paid<b>${t.Partial}</b></td><td>Unpaid<b>${t.Unpaid}</b></td><td>Students<b>${rows.length}</b></td></tr></table>
   <table class="lst"><thead><tr><th>#</th><th>Student</th><th class="r">Required</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${rows.map((r,n)=>`<tr><td>${n+1}</td><td>${esc(r.s.name)}</td><td class="r">${peso(c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td>${r.i.status==='Partial'?'Partially paid':r.i.status}</td></tr>`).join('')}</tbody></table></section>`}
@@ -459,14 +473,16 @@ function render(){
   const keep=document.activeElement&&document.activeElement.id==='q';
   if(!sb)return;
   if(recovering||!user){$('#app').innerHTML=views.login();$('#nav').innerHTML='';return}
+  if(!role){$('#app').innerHTML=views.noaccess();$('#nav').innerHTML='';return}
   let[v,arg]=route();if(NEED[v]&&!can(NEED[v]))v='home';
+  if(v==='accounts'&&ui.accts===undefined)setTimeout(loadAccounts);
   $('#app').innerHTML=views[v](arg);
-  const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer',summary:'treasurer',about:'about'}[v];
+  const sec={home:'home',students:'students',attendance:'attendance',history:'attendance',treasurer:'treasurer',contribution:'treasurer',summary:'treasurer',about:'about',accounts:'home'}[v];
   $('#nav').innerHTML=[['home','Home'],['students','Students','stu'],['attendance','Attendance','att'],['treasurer','Treasurer','tre'],['about','About']].filter(x=>!x[2]||can(x[2])).map(([k,l])=>`<a href="#${k}" class="${k===sec?'on':''}">${l}</a>`).join('');
   setSync();
   if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
 }
-window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){ui.date=today();loadDraft()}render();window.scrollTo(0,0)});
+window.addEventListener('hashchange',()=>{ui.q='';ui.accts=undefined;if(route()[0]==='attendance'){ui.date=today();loadDraft()}render();window.scrollTo(0,0)});
 
 /* ---------- Actions ---------- */
 const nameForm=(v='')=>`<label for="n">Student name</label><input id="n" name="name" value="${esc(v)}" required autocomplete="off">`;
@@ -504,12 +520,11 @@ const acts={
     if(!navigator.onLine)return lm(OFFMSG('sign in'));lm('Signing in…','info');
     try{const{data,error}=await sb.auth.signInWithPassword({email,password:f.password.value});if(error)return lm(authMsg(error));start(data.user,true)}
     catch(e){lm('Could not reach Supabase. Check your connection.')}},
-  async do_up(){const f=$('#af'),email=f.email.value.trim(),pw=f.password.value,section=f.section.value.trim();
-    if(section.length<2)return lm('Enter your section name, for example BSIT 2-A.');
+  async do_up(){const f=$('#af'),email=f.email.value.trim(),pw=f.password.value;
     if(!vMail(email))return lm('Enter a valid email address.');
     const pe=vPass(pw);if(pe)return lm(pe);if(pw!==f.confirm.value)return lm('Passwords don’t match.');
     if(!navigator.onLine)return lm(OFFMSG('create an account'));lm('Creating account…','info');
-    try{const{data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname,data:{section_name:section}}});
+    try{const{data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+location.pathname}});
       if(error)return lm(authMsg(error));
       if(data.user&&data.user.identities&&!data.user.identities.length)return lm('An account with this email already exists. Try signing in or resetting your password.');
       if(data.session){start(data.user,true);return}
@@ -527,10 +542,8 @@ const acts={
     try{const{data,error}=await sb.auth.updateUser({password:pw});if(error)return lm(authMsg(error));
       recovering=false;history.replaceState(null,'',location.pathname);toast('Password updated');start(data.user,true)}
     catch(e){lm('Could not reach Supabase. Check your connection.')}},
-  editSection(){modal('Section name',`<label for="sn2">Section name</label><input id="sn2" name="section" maxlength="60" value="${esc(sec())}" placeholder="e.g. BSIT 2-A" autocomplete="off">`,'Save',f=>{
-    const v=f.get('section').trim();if(v.length<2){toast('Enter a section name');return false}
-    if(!navigator.onLine){toast(OFFMSG('change the section name'));return false}
-    sb.auth.updateUser({data:{section_name:v}}).then(({data,error})=>{if(error)return toast(error.message);user=data.user;try{localStorage.setItem('cm2_last',JSON.stringify({id:user.id,email:user.email,section:v}))}catch(e){}toast('Section name saved');render()})})},
+  recheck(){start(user,true)},
+  async setRole({id,r}){const{error}=await sb.from('roles').update({role:r}).eq('user_id',id);if(error)return toast(error.message);toast(r==='officer'?'Account approved':'Access removed');loadAccounts()},
   dismissNotes(){conflicts=[];persist();render()},
   signout(){const un=needsReconcile||pending;modal('Sign out',`<p style="margin:0">Are you sure you want to sign out?</p>${un?'<p style="color:var(--absent);font-weight:600;margin:12px 0 0">Some changes on this device haven’t synced yet. Signing out will delete them. Connect to the internet and wait for “Saved” first.</p>':''}`,'Sign out',()=>{doSignOut()})},
   allPresent(){roster().forEach(s=>ui.marks[s.id]='Present');render()},
