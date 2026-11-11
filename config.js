@@ -8,10 +8,9 @@ window.SINGIL_CONFIG = {
 // About page and website name. Edit these texts freely.
 window.SINGIL_ABOUT = {
   site: 'Sheet, Singil!',
-  by: 'Precious Angel N. ignacio',
-  photo: 'pfp.jpg',   // put your picture in the same folder with this file name
+  by: 'Precious Angel',
+  photo: 'photo.jpg',   // put your picture in the same folder with this file name
   portfolio: 'https://preciousangelnignacio-portfolio.vercel.app/',
   project: 'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',
-  message: 'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.',
-  school: ''   // optional. Printed on attendance and financial reports when set. You can also set it under Account.
+  message: 'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'
 };

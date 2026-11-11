@@ -118,23 +118,6 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 #sync button{font:inherit;color:var(--absent);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px}
 @font-face{font-family:'Plus Jakarta Sans';src:url(fonts/plus-jakarta-sans.woff2) format('woff2');font-weight:200 800;font-style:normal;font-display:swap}
 .lnk{background:none;border:0;color:var(--accent);font:700 14px var(--font);cursor:pointer;padding:8px 0;text-decoration:underline}
-.tag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid var(--line);color:var(--mute);vertical-align:middle}
-.tag.regular{color:var(--excused);border-color:var(--excused)}
-.tag.irregular{color:var(--late);border-color:var(--late)}
-.bar select.fit{width:auto;flex:0 0 auto;min-width:148px}
-.check{display:flex;align-items:center;gap:8px;padding:6px 0;font-weight:600}
-.check input{width:auto;min-height:0}
-.pickbox{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:4px 12px;margin-top:8px}
-dialog.wide{width:min(560px,calc(100% - 32px))}
-@media print{
-.print-only .phdr{display:flex;align-items:center;gap:4mm;margin:0 0 4mm}
-.print-only .phdr img{width:16mm;height:16mm;object-fit:contain}
-.print-only .phdr h1{font-size:18pt;margin:0}
-.print-only .meta-line{margin:0 0 1.5mm;font-size:10.5pt;color:#222}
-.print-only h2{font-size:13pt;margin:5mm 0 1mm;color:#000}
-.print-only .lst tr,.print-only .sum tr{break-inside:avoid;page-break-inside:avoid}
-.sumwrap{display:none!important}
-}
 </style>
 </head>
 <body>
@@ -153,7 +136,7 @@ dialog.wide{width:min(560px,calc(100% - 32px))}
 <script>
 /* ---------- Data layer: all Supabase code lives here ---------- */
 const TABLES=['students','attendance','contributions','payments'];
-const COL={attendance:{savedAt:'saved_at'},contributions:{appliesTo:'applies_to',recipientIds:'recipient_ids'},payments:{contributionId:'contribution_id',studentId:'student_id'}};
+const COL={attendance:{savedAt:'saved_at'},contributions:{appliesTo:'applies_to'},payments:{contributionId:'contribution_id',studentId:'student_id'}};
 const S={students:[],attendance:[],contributions:[],payments:[]};
 const synced={};let sb=null,user=null,queue=Promise.resolve();
 const toDb=(k,r)=>{const o={user_id:user.id};for(const f in r){const v=r[f];o[(COL[k]||{})[f]||f]=(f==='due'&&!v)?null:v}return o};
@@ -165,60 +148,19 @@ const CAN={admin:{att:1,tre:1,stu:1,adm:1},officer:{att:1,tre:1}};
 const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre'};
 const can=k=>!!(role&&CAN[role]&&CAN[role][k]);
 const roster=()=>S.students.filter(s=>!s.inactive);
-function classOf(s){return s&&s.classification==='irregular'?'irregular':'regular'}
-function classLabel(s){return classOf(s)==='irregular'?'Irregular':'Regular'}
-function classTag(s){return `<span class="tag ${classOf(s)}">${classLabel(s)}</span>`}
-function normSubject(s){return String(s??'').replace(/\s+/g,' ').trim()}
-function subjectKey(s){return normSubject(s).toLowerCase()}
-function attKey(r){return (r.date||'')+'\n'+subjectKey(r.subject||'General Attendance')}
-function normStudent(s){s.classification=classOf(s);return s}
-function normAtt(a){a.subject=normSubject(a.subject)||'General Attendance';a.marks=a.marks&&typeof a.marks==='object'?a.marks:{};a.names=a.names&&typeof a.names==='object'?a.names:{};return a}
-function normContrib(c){
-  if(c.appliesTo==='class'||!c.appliesTo)c.appliesTo='all';
-  if(!['all','regular','irregular','selected'].includes(c.appliesTo))c.appliesTo='all';
-  if(typeof c.recipientIds==='string'){try{c.recipientIds=JSON.parse(c.recipientIds)}catch(e){c.recipientIds=null}}
-  if(!Array.isArray(c.recipientIds)){
-    const ids=new Set(S.students.filter(s=>!s.inactive).map(s=>s.id));
-    S.payments.filter(p=>p.contributionId===c.id).forEach(p=>{if(p.studentId)ids.add(p.studentId)});
-    c.recipientIds=[...ids];
-  }
-  c.recipientIds=[...new Set(c.recipientIds.filter(Boolean).map(String))].sort();
-  if(typeof c.amount==='number')c.amount=Math.round(c.amount*100)/100;
-  return c;
-}
-function dedupeAttendance(){
-  const map=new Map();
-  S.attendance.forEach(raw=>{
-    const a=normAtt(raw),k=attKey(a),prev=map.get(k);
-    if(!prev){map.set(k,a);return}
-    const aNew=(a.savedAt||'')>=(prev.savedAt||'');
-    const newer=aNew?a:prev,older=aNew?prev:a;
-    const keep={...older,...newer,id:newer.id,date:newer.date||older.date,subject:normSubject(newer.subject)||normSubject(older.subject)||'General Attendance',savedAt:newer.savedAt||older.savedAt,marks:{...older.marks,...newer.marks},names:{...older.names,...newer.names}};
-    conflicts.push(note('attendance','merged',older));
-    map.set(k,keep);
-  });
-  S.attendance=[...map.values()];
-}
-function normalizeAll(){S.students.forEach(normStudent);S.contributions.forEach(normContrib);dedupeAttendance()}
-function activeByClass(kind){const list=roster();if(kind==='regular'||kind==='irregular')return list.filter(s=>classOf(s)===kind);return list}
-function recipientsOf(c){const ids=new Set((c.recipientIds||[]).map(String));return S.students.filter(s=>ids.has(String(s.id))).sort(byName)}
-function appliesLabel(c){return {all:'All students',regular:'Regular students',irregular:'Irregular students',selected:'Selected students',class:'All students'}[c.appliesTo]||'All students'}
-function findAtt(date,subject,exceptId){const k=subjectKey(subject);if(!k)return null;return S.attendance.find(a=>a.id!==exceptId&&a.date===date&&subjectKey(a.subject)===k)||null}
-function schoolName(){try{const v=localStorage.getItem('cm2_school');if(v)return v}catch(e){}return (ABOUT&&ABOUT.school)||''}
 const ck=()=>'cm2_'+(user&&user.id);
 const stable=o=>o&&typeof o==='object'?Array.isArray(o)?'['+o.map(stable)+']':'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}':JSON.stringify(o);
 /* sig(): a stable fingerprint of a row, used to tell whether it changed */
 const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.inactive;if(typeof o.amount==='number')o.amount=Math.round(o.amount*100)/100;if('notes' in o&&o.notes==null)o.notes='';return stable(o)};
-const NOTE={overwrote:'your offline edit replaced a newer change',kept:'kept a change made elsewhere instead of deleting it',dropped:'payment skipped because its student or contribution was deleted',merged:'combined two attendance records that used the same date and subject'};
+const NOTE={overwrote:'your offline edit replaced a newer change',kept:'kept a change made elsewhere instead of deleting it',dropped:'payment skipped because its student or contribution was deleted'};
 const note=(table,action,row)=>({t:Date.now(),table,action,row});
 function setSync(){const e=$('#sync');if(!e)return;
   e.innerHTML=!navigator.onLine?'Offline · saved on this device':failed?'<span style="color:var(--absent)">Not synced</span> <button data-act="retry">Retry</button>':pending?'Syncing…':needsReconcile?'Waiting to sync':everSaved?'Saved':''}
 /* Every change is written to this device first, then sent to Supabase when possible. */
 function persist(){if(!user)return;try{const sy={};TABLES.forEach(k=>sy[k]=[...(synced[k]||new Map())]);localStorage.setItem(ck(),JSON.stringify({S,sy,role,needs:needsReconcile,conf:conflicts}))}catch(e){}}
 function readCache(){try{return JSON.parse(localStorage.getItem(ck()))}catch(e){return null}}
-function applyCache(c){TABLES.forEach(k=>{S[k]=(c.S&&c.S[k])||[];synced[k]=new Map((c.sy&&c.sy[k])||[])});role='admin';needsReconcile=!!c.needs;conflicts=c.conf||[];normalizeAll()}
+function applyCache(c){TABLES.forEach(k=>{S[k]=(c.S&&c.S[k])||[];synced[k]=new Map((c.sy&&c.sy[k])||[])});role='admin';needsReconcile=!!c.needs;conflicts=c.conf||[]}
 function save(k){
-  normalizeAll();
   everSaved=true;persist();
   if(!navigator.onLine||needsReconcile||failed){needsReconcile=true;persist();setSync();if(navigator.onLine)syncSoon();return}
   pending++;setSync();
@@ -245,13 +187,9 @@ async function runReconcile(){
 async function reconcile(){
   const rem={};
   for(const k of TABLES){const{data,error}=await sb.from(k).select('*');if(error)throw error;rem[k]=new Map(data.map(x=>fromDb(k,x)).map(r=>[r.id,r]))}
-  ;[...rem.attendance.values()].forEach(normAtt);S.attendance.forEach(normAtt);
-  const byKey=new Map([...rem.attendance.values()].map(r=>[attKey(r),r]));
-  S.attendance=S.attendance.map(l=>{const r=byKey.get(attKey(l));
-    if(!(r&&r.id!==l.id&&!rem.attendance.has(l.id)))return l;
-    const newer=(l.savedAt||'')>=(r.savedAt||'')?l:r,older=newer===l?r:l;
-    return {...newer,id:r.id,marks:{...older.marks,...newer.marks},names:{...older.names,...newer.names}};
-  });
+  const byDate=new Map([...rem.attendance.values()].map(r=>[r.date,r]));
+  S.attendance=S.attendance.map(l=>{const r=byDate.get(l.date);
+    return r&&r.id!==l.id&&!rem.attendance.has(l.id)?{...r,marks:{...r.marks,...l.marks},names:{...r.names,...l.names}}:l});
   const out={},up={},del={};let changed=false;
   for(const k of TABLES){
     const base=synced[k]||new Map(),loc=new Map(S[k].map(r=>[r.id,r])),rm=rem[k],res=[];up[k]=[];del[k]=[];
@@ -278,18 +216,14 @@ async function reconcile(){
   out.payments=out.payments.filter(ok);up.payments=up.payments.filter(ok);
   for(const k of ['payments','attendance','contributions','students'])for(let i=0;i<del[k].length;i+=50){const{error}=await sb.from(k).delete().in('id',del[k].slice(i,i+50));if(error)throw error}
   for(const k of TABLES)if(up[k].length){const{error}=await sb.from(k).upsert(up[k].map(r=>toDb(k,r)));if(error)throw error}
-  TABLES.forEach(k=>{S[k]=out[k]});
-  normalizeAll();
-  TABLES.forEach(k=>{synced[k]=new Map(S[k].map(r=>[r.id,sig(r)]))});
+  TABLES.forEach(k=>{S[k]=out[k];synced[k]=new Map(S[k].map(r=>[r.id,sig(r)]))});
   conflicts=conflicts.slice(-20);
   return changed;
 }
 async function loadAll(initial){
   const res=await Promise.all(TABLES.map(k=>sb.from(k).select('*')));
   if(!initial&&(pending||needsReconcile))return;
-  res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x))});
-  normalizeAll();
-  TABLES.forEach(k=>{synced[k]=new Map(S[k].map(x=>[x.id,sig(x)]))});
+  res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,sig(x)]))});
   needsReconcile=false;persist();
 }
 async function start(u,home){
