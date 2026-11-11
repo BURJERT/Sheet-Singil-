@@ -1,7 +1,7 @@
 // Service worker: lets the site open without internet after one online visit.
 // Strategy: try the network first (so updates arrive), fall back to the saved copy when offline.
 // Supabase API calls are never touched here; offline data is handled inside index.html.
-const V = 'singil-v8';
+const V = 'singil-v9';
 const CORE = ['./', 'index.html', 'config.js', 'supabase.js', 'manifest.webmanifest', 'photo.jpg',
   'fonts/plus-jakarta-sans.woff2', 'singillogo/singillogo-32.png', 'singillogo/singillogo.ico',
   'singillogo/singillogo-180.png', 'singillogo/singillogo-192.png', 'singillogo/singillogo-512.png'];
