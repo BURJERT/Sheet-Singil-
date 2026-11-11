@@ -3,17 +3,20 @@ create table students (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   name text not null,
+  classification text not null default 'regular' check (classification in ('regular','irregular')),
   created_at timestamptz default now()
 );
 create table attendance (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   date date not null,
+  subject text not null default 'General Attendance',
   marks jsonb not null default '{}',
   names jsonb not null default '{}',
-  saved_at timestamptz default now(),
-  unique (user_id, date)
+  saved_at timestamptz default now()
 );
+create unique index attendance_date_subject_uidx
+  on attendance (date, lower(regexp_replace(btrim(subject), '\s+', ' ', 'g')));
 create table contributions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
@@ -21,7 +24,8 @@ create table contributions (
   amount numeric(12,2) not null check (amount > 0),
   due date,
   notes text default '',
-  applies_to text default 'class',
+  applies_to text default 'all' check (applies_to in ('all','regular','irregular','selected','class')),
+  recipient_ids jsonb not null default '[]',
   created date default current_date
 );
 create table payments (
