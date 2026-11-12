@@ -8,13 +8,15 @@ Static site (HTML/CSS/JS) + Supabase. No build step. Works offline after one onl
 - sw.js – service worker (makes the site open offline)
 - manifest.webmanifest – lets phones "Add to Home Screen" as an app
 - supabase.js – Supabase library (kept locally so it works offline)
+- vendor/ – PDF libraries (jsPDF + autoTable), kept locally so PDFs work offline
 - fonts/ – the site font, kept locally
 - singillogo/ – tab and app icons. See singillogo/README.txt to replace them
 - schema.sql – first-time database setup (run once)
 - upgrade.sql – archived students and private-section rules (run once, safe to re-run)
+- upgrade-v2.sql – irregular students, contribution targets, attendance subjects (run once, safe to re-run)
 
 ## Setup
-1. Supabase: SQL Editor > run `schema.sql` (first time only), then `upgrade.sql`.
+1. Supabase: SQL Editor > run `schema.sql` (first time only), then `upgrade.sql`, then `upgrade-v2.sql`.
 2. Put your Project URL and publishable key in `config.js`.
 3. Authentication > URL Configuration: set Site URL to your Vercel address and add it under Redirect URLs
    (needed for the confirmation and password reset emails).
