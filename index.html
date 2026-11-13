@@ -404,7 +404,7 @@ function draftRec(){
 }
 function attData(a){
   const ids=Object.keys(a.names).sort((x,y)=>a.names[x].localeCompare(a.names[y])),r=attCounts(a.marks,ids),irr=id=>{const s=S.students.find(x=>x.id===id);return s&&s.irregular};
-  return{title:(a.subject||'General')+' - Attendance',sub:[[sec(),fmt(a.date),fmtTime(a.time),scopeLabel(a.scope)].filter(Boolean).join(' · ')],counts:r,rows:ids.map((id,i)=>[i+1,a.names[id],irr(id)?'Irregular':'Regular',a.marks[id]||'Unmarked'])};
+  return{title:(a.subject||'General')+' - Attendance',sub:[[sec(),fmt(a.date),fmtTime(a.time),scopeLabel(a.scope)].filter(Boolean).join(' · ')],counts:r,rows:ids.map((id,i)=>[i+1,a.names[id]+(irr(id)?' (irregular)':''),irr(id)?'Irregular':'Regular',a.marks[id]||'Unmarked'])};
 }
 function attRec(id){return id?S.attendance.find(a=>a.id===id):draftRec()}
 /* ---------- Router & render ---------- */
@@ -505,9 +505,9 @@ const acts={
     save('attendance');toast('Attendance saved: '+(rec.subject||'General')+' · '+fmt(rec.date));render();
   },
   printAtt({id}){const a=attRec(id);if(!Object.keys(a.names).length)return toast('No students to print');const d=attData(a);
-    printDoc(`<h1>${esc(d.title)}</h1><p>${esc(d.sub[0])}</p><table class="sum"><tr>${Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<td>${k}<b>${v}</b></td>`).join('')}</tr></table><table><thead><tr><th>#</th><th>Student</th><th>Type</th><th>Status</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table>`)},
+    printDoc(`<h1>${esc(d.title)}</h1><p>${esc(d.sub[0])}</p><table class="sum"><tr>${Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<td>${k}<b>${v}</b></td>`).join('')}</tr></table><table><thead><tr><th>#</th><th>Student</th><th>Time</th><th>Status</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${esc(fmtTime(a.time))}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table>`)},
   pdfAtt({id}){const a=attRec(id);if(!Object.keys(a.names).length)return toast('No students to export');const d=attData(a);
-    pdfFile('attendance-'+fileSafe(a.subject||'general')+'-'+a.date+'.pdf',{title:d.title,sub:d.sub,stats:Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v),sections:[{head:['#','Student','Type'],body:d.rows.map(r=>r.slice(0,3)),cols:{0:{cellWidth:12}}}]})},
+    pdfFile('attendance-'+fileSafe(a.subject||'general')+'-'+a.date+'.pdf',{title:d.title,sub:d.sub,stats:Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v),sections:[{head:['#','Student','Time','Status'],body:d.rows.map(r=>[r[0],r[1],fmtTime(a.time),r[3]]),cols:{0:{cellWidth:12}}}]})},
   toggleIrr({id}){const s=S.students.find(x=>x.id===id);s.irregular=!s.irregular;save('students');toast(s.name+' is now '+(s.irregular?'irregular':'regular'));render()},
   pdfSummary(){const{tot,groups,q}=sumCalc();if(!groups.length)return toast('Nothing to export');
     const fc=ui.fc==='all'?'All contributions':(S.contributions.find(c=>c.id===ui.fc)||{}).name,fs=ui.fs==='all'?'All statuses':ui.fs==='Partial'?'Partially paid':ui.fs;
