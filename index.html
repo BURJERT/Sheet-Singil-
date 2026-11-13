@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sheet, Singil!</title>
+<title>Fund Sheet</title>
 <!-- ============ ADD YOUR FAVICON IMAGE HERE ============
      Replace the files inside the /singil folder with your own image (keep the same file names).
      Instructions: singillogo/README.txt -->
@@ -122,7 +122,7 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 </head>
 <body>
 <header class="top"><div class="wrap">
-<a class="brand" href="#home">Sheet, Singil!</a>
+<a class="brand" href="#home">Fund Sheet</a>
 <span id="sync" role="status"></span>
 <nav id="nav"></nav>
 </div></header>
@@ -132,8 +132,8 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 <div id="toast" role="status"></div>
 <input type="file" id="rf" accept="application/json,.json" hidden>
 <script src="supabase.js"></script>
-<script src="vendor/jspdf.umd.min.js"></script>
-<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="vendor/jspdf.umd.min.js" defer></script>
+<script src="vendor/jspdf.plugin.autotable.min.js" defer></script>
 <script src="config.js"></script>
 <script>
 /* ---------- Data layer: all Supabase code lives here ---------- */
@@ -145,7 +145,7 @@ const toDb=(k,r)=>{const o={user_id:user.id};for(const f in r){const v=r[f];o[(C
 const fromDb=(k,r)=>{const rev=Object.fromEntries(Object.entries(COL[k]||{}).map(([a,b])=>[b,a])),o={};
   for(const f in r){if(f==='user_id'||f==='created_at')continue;o[rev[f]||f]=r[f]}
   if('amount' in o)o.amount=+o.amount;if('due' in o)o.due=o.due||'';return o};
-let role=null,pending=0,failed=false,everSaved=false,needsReconcile=false,conflicts=[],recovering=false,pendingAcct=false;
+let role=null,syncing=false,pending=0,failed=false,everSaved=false,needsReconcile=false,conflicts=[],recovering=false,pendingAcct=false;
 const CAN={admin:{att:1,tre:1,stu:1,adm:1},officer:{att:1,tre:1}};
 const NEED={students:'stu',attendance:'att',history:'att',treasurer:'tre',summary:'tre',contribution:'tre'};
 const can=k=>!!(role&&CAN[role]&&CAN[role][k]);
@@ -157,7 +157,7 @@ const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.ina
 const NOTE={overwrote:'your offline edit replaced a newer change',kept:'kept a change made elsewhere instead of deleting it',dropped:'payment skipped because its student or contribution was deleted'};
 const note=(table,action,row)=>({t:Date.now(),table,action,row});
 function setSync(){const e=$('#sync');if(!e)return;
-  e.innerHTML=!navigator.onLine?'Offline · saved on this device':failed?'<span style="color:var(--absent)">Not synced</span> <button data-act="retry">Retry</button>':pending?'Syncing…':needsReconcile?'Waiting to sync':everSaved?'Saved':''}
+  e.innerHTML=!navigator.onLine?'Offline · saved on this device':failed?'<span style="color:var(--absent)">Not synced</span> <button data-act="retry">Retry</button>':(pending||syncing)?'Syncing…':needsReconcile?'Waiting to sync':everSaved?'Saved':''}
 /* Every change is written to this device first, then sent to Supabase when possible. */
 function persist(){if(!user)return;try{const sy={};TABLES.forEach(k=>sy[k]=[...(synced[k]||new Map())]);localStorage.setItem(ck(),JSON.stringify({S,sy,role,needs:needsReconcile,conf:conflicts}))}catch(e){}}
 function readCache(){try{return JSON.parse(localStorage.getItem(ck()))}catch(e){return null}}
@@ -228,21 +228,27 @@ async function loadAll(initial){
   res.forEach((r,i)=>{const k=TABLES[i];if(r.error)throw r.error;S[k]=r.data.map(x=>fromDb(k,x));synced[k]=new Map(S[k].map(x=>[x.id,sig(x)]))});
   needsReconcile=false;persist();
 }
+function softRender(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.id!=='q')return;render()}
+/* Open instantly from the copy saved on this device; talk to the server in the background. */
 async function start(u,home){
   user=u;role='admin';
   try{localStorage.setItem('cm2_last',JSON.stringify({id:u.id,email:u.email,section:(u.user_metadata&&u.user_metadata.section_name)||u.section||''}))}catch(e){}
-  const cached=readCache();let used=false;
+  const cached=readCache();
+  if(cached){applyCache(cached);loadDraft();if(home)location.hash='home';render();bgSync();return}
   try{
     if(!navigator.onLine)throw new Error('offline');
-    {
-      if(cached&&cached.needs){const r=role;applyCache(cached);used=true;role=r;await reconcile();needsReconcile=false;failed=false;persist()}
-      else await loadAll(true);
-    }
-  }catch(e){
-    if(cached){if(!used)applyCache(cached);failed=navigator.onLine;toast(navigator.onLine?'Could not reach the server. Using data saved on this device.':'Offline mode: using the data saved on this device.')}
-    else toast(navigator.onLine?'Could not load data: '+e.message:'You are offline. Connect to the internet once to load your data.')
-  }
+    await loadAll(true);
+  }catch(e){toast(navigator.onLine?'Could not load data: '+e.message:'You are offline. Connect to the internet once to load your data.')}
   loadDraft();if(home)location.hash='home';render();
+}
+async function bgSync(){
+  if(!navigator.onLine)return;
+  syncing=true;setSync();
+  try{
+    if(needsReconcile){await reconcile();needsReconcile=false;failed=false;persist();softRender()}
+    else{await loadAll();softRender()}
+  }catch(e){failed=navigator.onLine;console.error(e)}
+  syncing=false;setSync();
 }
 /* Pull other devices' changes when the tab is reopened or every minute (never while saving or typing). */
 async function refresh(){
@@ -250,7 +256,7 @@ async function refresh(){
   if(needsReconcile&&!pending){syncSoon();return}
   if(pending||failed||document.querySelector('dialog[open]'))return;
   const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;
-  try{await loadAll();render()}catch(e){}
+  try{await loadAll();softRender()}catch(e){}
 }
 async function doSignOut(){
   const key=user&&ck();
@@ -266,15 +272,16 @@ async function boot(){
   const herr=new URLSearchParams(location.hash.slice(1)).get('error_description');
   if(herr){ui.authMsg=herr;ui.auth='forgot';history.replaceState(null,'',location.pathname)}
   let base=c.url.trim();try{base=new URL(base).origin}catch(e){}
-  sb=supabase.createClient(base,c.anonKey.trim());
+  sb=supabase.createClient(base,c.anonKey.trim(),{global:{fetch:(u,o={})=>{const ac=new AbortController(),t=setTimeout(()=>ac.abort(),10000);return fetch(u,{...o,signal:o.signal||ac.signal}).finally(()=>clearTimeout(t))}}});
   sb.auth.onAuthStateChange(ev=>{
     if(ev==='PASSWORD_RECOVERY'){recovering=true;render()}
     if(ev==='SIGNED_OUT'&&user){user=null;role=null;render()}
   });
-  let session=null;try{const{data}=await sb.auth.getSession();session=data.session}catch(e){}
+  let session=null,slow=false;
+  try{const r=await Promise.race([sb.auth.getSession(),new Promise(r=>setTimeout(()=>r(null),2500))]);if(r===null)slow=true;else session=r.data.session}catch(e){}
   if(recovering&&!session){recovering=false;ui.auth='forgot';ui.authMsg='This reset link is invalid or has expired. Request a new one.'}
   if(session&&!recovering)start(session.user);
-  else if(!session&&!navigator.onLine){const lu=JSON.parse(localStorage.getItem('cm2_last')||'null');lu?start(lu):render()}
+  else if(!session&&(slow||!navigator.onLine)){const lu=JSON.parse(localStorage.getItem('cm2_last')||'null');lu?start(lu):render()}
   else render();
 }
 
@@ -288,7 +295,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const byName=(a,b)=>a.name.localeCompare(b.name);
 const STAT=['Present','Absent','Late','Excused'];
 let ui={q:'',date:today(),marks:{},open:{},fc:'all',fs:'all',subject:'',scope:'all'};
-const ABOUT=Object.assign({site:'Sheet, Singil!',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
+const ABOUT=Object.assign({site:'Fund Sheet',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
 document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -538,7 +545,7 @@ const acts={
   restore(){$('#rf').click()},
   retry(){failed=false;needsReconcile=true;persist();setSync();syncSoon();toast('Syncing…')},
   backup(){const b=new Blob([JSON.stringify({exported:today(),students:S.students,attendance:S.attendance,contributions:S.contributions,payments:S.payments},null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='sheet-singil-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='fund-sheet-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
   newSem(){modal('Start a new semester',`<p style="margin:0 0 12px">This permanently removes all <b>attendance records, contributions and payments</b>.</p>
     <button type="button" class="btn sm" data-act="backup">Download a backup first</button>
     <label style="display:flex;gap:10px;align-items:center;font-weight:600;margin-top:16px"><input type="checkbox" name="wipe" style="width:auto;min-height:0"> Also remove all students</label>
@@ -664,7 +671,6 @@ setInterval(refresh,60000);
 window.addEventListener('online',()=>{setSync();if(user&&role){if(needsReconcile||failed)acts.retry();else refresh()}});
 window.addEventListener('offline',setSync);
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-window.addEventListener('beforeunload',e=>{if(pending){e.preventDefault();e.returnValue=''}});
 boot();
 </script>
 </body>
