@@ -1,8 +1,8 @@
 // Service worker: lets the site open without internet after one online visit.
 // Strategy: answer from the saved copy IMMEDIATELY, and refresh the copy in the background.
 // (So a bad or slow connection never makes the page wait.) Supabase calls are never touched here.
-const V = 'fund-sheet-v11';
-const CORE = ['./', 'index.html', 'config.js', 'supabase.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'manifest.webmanifest', 'photo.jpg',
+const V = 'fund-sheet-v12';
+const CORE = ['./', 'index.html', 'config.js', 'styles.css', 'supabase.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'manifest.webmanifest', 'photo.jpg',
   'fonts/plus-jakarta-sans.woff2', 'singillogo/singillogo-32.png', 'singillogo/singillogo.ico',
   'singillogo/singillogo-180.png', 'singillogo/singillogo-192.png', 'singillogo/singillogo-512.png'];
 
