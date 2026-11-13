@@ -33,7 +33,7 @@
 <script>
 /* ---------- Data layer: all Supabase code lives here ---------- */
 const TABLES=['students','attendance','contributions','payments'];
-const COL={attendance:{savedAt:'saved_at'},contributions:{appliesTo:'applies_to',studentIds:'student_ids'},payments:{contributionId:'contribution_id',studentId:'student_id'}};
+const COL={attendance:{savedAt:'saved_at',time:'session_time'},contributions:{appliesTo:'applies_to',studentIds:'student_ids'},payments:{contributionId:'contribution_id',studentId:'student_id'}};
 const S={students:[],attendance:[],contributions:[],payments:[]};
 const synced={};let sb=null,user=null,queue=Promise.resolve();
 const toDb=(k,r)=>{const o={user_id:user.id};for(const f in r){const v=r[f];o[(COL[k]||{})[f]||f]=(f==='due'&&!v)?null:v}return o};
@@ -48,7 +48,7 @@ const roster=()=>S.students.filter(s=>!s.inactive);
 const ck=()=>'cm2_'+(user&&user.id);
 const stable=o=>o&&typeof o==='object'?Array.isArray(o)?'['+o.map(stable)+']':'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}':JSON.stringify(o);
 /* sig(): a stable fingerprint of a row, used to tell whether it changed */
-const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.inactive;if(o.irregular===false)delete o.irregular;if('marks' in o){o.subject=o.subject||'';o.scope=o.scope||'all'}if('amount' in o&&'due' in o){if(!o.appliesTo||o.appliesTo==='class')o.appliesTo='all';if(!o.studentIds)o.studentIds=[]}if(typeof o.amount==='number')o.amount=Math.round(o.amount*100)/100;if('notes' in o&&o.notes==null)o.notes='';return stable(o)};
+const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.inactive;if(o.irregular===false)delete o.irregular;if('marks' in o){o.subject=o.subject||'';o.scope=o.scope||'all';o.time=o.time||''}if('amount' in o&&'due' in o){if(!o.appliesTo||o.appliesTo==='class')o.appliesTo='all';if(!o.studentIds)o.studentIds=[]}if(typeof o.amount==='number')o.amount=Math.round(o.amount*100)/100;if('notes' in o&&o.notes==null)o.notes='';return stable(o)};
 const NOTE={overwrote:'your offline edit replaced a newer change',kept:'kept a change made elsewhere instead of deleting it',dropped:'payment skipped because its student or contribution was deleted'};
 const note=(table,action,row)=>({t:Date.now(),table,action,row});
 function setSync(){const e=$('#sync');if(!e)return;
@@ -189,7 +189,9 @@ const fmt=d=>d?new Date(d+'T00:00').toLocaleDateString('en-PH',{weekday:'short',
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const byName=(a,b)=>a.name.localeCompare(b.name);
 const STAT=['Present','Absent','Late','Excused'];
-let ui={q:'',date:today(),marks:{},open:{},fc:'all',fs:'all',subject:'',scope:'all'};
+const nowTime=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const fmtTime=t=>t?new Date('1970-01-01T'+t).toLocaleTimeString('en-PH',{hour:'numeric',minute:'2-digit'}):'';
+let ui={time:nowTime(),q:'',date:today(),marks:{},open:{},fc:'all',fs:'all',subject:'',scope:'all'};
 const ABOUT=Object.assign({site:'Fund Sheet',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
 document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
@@ -221,7 +223,7 @@ function cStats(c){
 }
 function attCounts(marks,ids){const r={Present:0,Absent:0,Late:0,Excused:0,Unmarked:0};ids.forEach(id=>r[marks[id]||'Unmarked']++);return r}
 const chips=r=>Object.entries(r).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<span class="chip ${k}">${k}: ${v}</span>`).join('');
-function loadDraft(){const k=akey({date:ui.date,subject:ui.subject}),rec=S.attendance.find(a=>akey(a)===k);ui.marks=rec?{...rec.marks}:{};if(rec)ui.scope=rec.scope||'all'}
+function loadDraft(){const k=akey({date:ui.date,subject:ui.subject}),rec=S.attendance.find(a=>akey(a)===k);ui.marks=rec?{...rec.marks}:{};if(rec){ui.scope=rec.scope||'all';ui.time=rec.time||''}}
 
 /* ---------- Views ---------- */
 const sec=()=>user?((user.user_metadata&&user.user_metadata.section_name)||user.section||''):'';
@@ -261,12 +263,13 @@ students(){
 },
 attendance(){
   const pool=sessPool(),list=pool.filter(match).sort(byName),r=attCounts(ui.marks,pool.map(s=>s.id));
-  const sess=S.attendance.filter(a=>a.date===ui.date).sort((a,b)=>(a.subject||'').localeCompare(b.subject||'')),subs=[...new Set(S.attendance.map(a=>a.subject).filter(Boolean))];
+  const sess=S.attendance.filter(a=>a.date===ui.date).sort((a,b)=>(a.time||'').localeCompare(b.time||'')||(a.subject||'').localeCompare(b.subject||'')),subs=[...new Set(S.attendance.map(a=>a.subject).filter(Boolean))];
   return `<h1>Attendance</h1><p class="sub">Pick the date and subject, tap a status for each student, then save.</p>
   <div class="card"><div class="bar"><div style="flex:1;min-width:140px"><label for="dt" style="margin:0 0 6px">Date</label><input id="dt" type="date" value="${ui.date}"></div>
+  <div style="flex:1;min-width:120px"><label for="tm" style="margin:0 0 6px">Time</label><input id="tm" type="time" value="${esc(ui.time)}"></div>
   <div style="flex:2;min-width:200px"><label for="sj" style="margin:0 0 6px">Subject / class name</label><input id="sj" list="subs" maxlength="80" placeholder="e.g. Math 101" value="${esc(ui.subject)}" autocomplete="off"><datalist id="subs">${subs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
   <div style="flex:1;min-width:150px"><label for="sc" style="margin:0 0 6px">Students</label><select id="sc">${[['all','All students'],['regular','Regular only'],['irregular','Irregular only']].map(([v,l])=>`<option value="${v}"${ui.scope===v?' selected':''}>${l}</option>`).join('')}</select></div></div>
-  ${sess.length?`<div class="bar" style="margin-bottom:10px"><span style="color:var(--mute);font-size:14px;font-weight:600">Saved this day:</span>${sess.map(a=>`<button class="btn sm${akey(a)===akey({date:ui.date,subject:ui.subject})?' pri':''}" data-act="openSess" data-id="${a.id}">${esc(a.subject||'General')}</button>`).join('')}<button class="btn sm" data-act="newSess">+ New subject</button></div>`:''}
+  ${sess.length?`<div class="bar" style="margin-bottom:10px"><span style="color:var(--mute);font-size:14px;font-weight:600">Saved this day:</span>${sess.map(a=>`<button class="btn sm${akey(a)===akey({date:ui.date,subject:ui.subject})?' pri':''}" data-act="openSess" data-id="${a.id}">${esc(a.subject||'General')}${a.time?' · '+fmtTime(a.time):''}</button>`).join('')}<button class="btn sm" data-act="newSess">+ New subject</button></div>`:''}
   <div class="bar"><button class="btn pri" data-act="allPresent">Mark all present</button></div>
   <div class="chips">${chips(r)}</div>${searchBar('Search students')}
   ${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}${s.irregular?' <span class="badge Excused" style="font-size:11px;margin-left:6px">Irregular</span>':''}</span><div class="seg">${STAT.map(t=>`<button data-act="mark" data-id="${s.id}" data-s="${t}" class="${ui.marks[s.id]===t?'on':''}" aria-pressed="${ui.marks[s.id]===t}">${t}</button>`).join('')}</div></div>`).join(''):empty(pool.length?'No student matches your search.':S.students.length?'No students in this group.':'Add students first to take attendance.')}
@@ -274,10 +277,10 @@ attendance(){
   <div class="bar"><button class="btn pri" data-act="saveAtt">Save attendance</button><button class="btn" data-act="printAtt">Print</button><button class="btn" data-act="pdfAtt">Download PDF</button><a class="btn" href="#history">View history</a></div>`;
 },
 history(){
-  const recs=[...S.attendance].sort((a,b)=>b.date.localeCompare(a.date)||(a.subject||'').localeCompare(b.subject||''));
+  const recs=[...S.attendance].sort((a,b)=>b.date.localeCompare(a.date)||(a.time||'').localeCompare(b.time||'')||(a.subject||'').localeCompare(b.subject||''));
   return `<h1>Attendance history</h1><p class="sub">Saved records, newest first.</p>
   ${recs.length?recs.map(a=>{const ids=Object.keys(a.names);const r=attCounts(a.marks,ids),o=ui.open[a.id];
-   return `<div class="card"><h2>${esc(a.subject||'General')}</h2><div style="color:var(--mute);font-size:14px">${fmt(a.date)} · ${scopeLabel(a.scope)}</div><div class="chips" style="margin:10px 0">${chips(r)}</div>
+   return `<div class="card"><h2>${esc(a.subject||'General')}</h2><div style="color:var(--mute);font-size:14px">${fmt(a.date)}${a.time?' · '+fmtTime(a.time):''} · ${scopeLabel(a.scope)}</div><div class="chips" style="margin:10px 0">${chips(r)}</div>
    <div class="acts"><button class="btn sm" data-act="toggle" data-id="${a.id}">${o?'Hide':'View'} details</button><button class="btn sm" data-act="editRec" data-id="${a.id}">Edit</button><button class="btn sm" data-act="printAtt" data-id="${a.id}">Print</button><button class="btn sm" data-act="pdfAtt" data-id="${a.id}">PDF</button><button class="btn sm dng" data-act="delRec" data-id="${a.id}">Delete</button></div>
    ${o?`<div style="margin-top:10px">${ids.sort((x,y)=>a.names[x].localeCompare(a.names[y])).map(id=>`<div class="row"><span class="nm">${esc(a.names[id])}</span><span class="badge ${a.marks[id]||'Unmarked'}">${a.marks[id]||'Unmarked'}</span></div>`).join('')}</div>`:''}</div>`}).join(''):`<div class="card">${empty('No attendance saved yet.')}</div>`}
   <a class="btn" href="#attendance">Back to attendance</a>`;
@@ -395,12 +398,13 @@ function pdfFile(name,o){
 const fileSafe=t=>String(t||'file').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'file';
 function draftRec(){
   const sj=$('#sj');if(sj&&typeof sj.value==='string')ui.subject=sj.value;
+  const tm=$('#tm');if(tm&&typeof tm.value==='string')ui.time=tm.value;
   const pool=sessPool(),names={},marks={};pool.forEach(s=>{names[s.id]=s.name;if(ui.marks[s.id])marks[s.id]=ui.marks[s.id]});
-  return{id:uid(),date:ui.date,subject:ui.subject.trim().replace(/\s+/g,' '),scope:ui.scope,marks,names,savedAt:new Date().toISOString()};
+  return{id:uid(),date:ui.date,subject:ui.subject.trim().replace(/\s+/g,' '),scope:ui.scope,time:ui.time||'',marks,names,savedAt:new Date().toISOString()};
 }
 function attData(a){
   const ids=Object.keys(a.names).sort((x,y)=>a.names[x].localeCompare(a.names[y])),r=attCounts(a.marks,ids),irr=id=>{const s=S.students.find(x=>x.id===id);return s&&s.irregular};
-  return{title:(a.subject||'General')+' - Attendance',sub:[[sec(),fmt(a.date),scopeLabel(a.scope)].filter(Boolean).join(' · ')],counts:r,rows:ids.map((id,i)=>[i+1,a.names[id],irr(id)?'Irregular':'Regular',a.marks[id]||'Unmarked'])};
+  return{title:(a.subject||'General')+' - Attendance',sub:[[sec(),fmt(a.date),fmtTime(a.time),scopeLabel(a.scope)].filter(Boolean).join(' · ')],counts:r,rows:ids.map((id,i)=>[i+1,a.names[id],irr(id)?'Irregular':'Regular',a.marks[id]||'Unmarked'])};
 }
 function attRec(id){return id?S.attendance.find(a=>a.id===id):draftRec()}
 /* ---------- Router & render ---------- */
@@ -416,7 +420,7 @@ function render(){
   setSync();
   if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
 }
-window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){if(ui.keep)ui.keep=false;else{ui.date=today();ui.subject='';ui.scope='all';loadDraft()}}render();window.scrollTo(0,0)});
+window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){if(ui.keep)ui.keep=false;else{ui.date=today();ui.subject='';ui.scope='all';ui.time=nowTime();loadDraft()}}render();window.scrollTo(0,0)});
 
 /* ---------- Actions ---------- */
 function cForm(c){const a=c?(c.appliesTo==='class'?'all':c.appliesTo||'all'):'all',ids=new Set((c&&c.studentIds)||[]);
@@ -493,8 +497,8 @@ const acts={
   signout(){const un=needsReconcile||pending;modal('Sign out',`<p style="margin:0">Are you sure you want to sign out?</p>${un?'<p style="color:var(--absent);font-weight:600;margin:12px 0 0">Some changes on this device haven’t synced yet. Signing out will delete them. Connect to the internet and wait for “Saved” first.</p>':''}`,'Sign out',()=>{doSignOut()})},
   allPresent(){sessPool().forEach(s=>ui.marks[s.id]='Present');render()},
   mark({id,s}){ui.marks[id]=ui.marks[id]===s?undefined:s;if(!ui.marks[id])delete ui.marks[id];render()},
-  openSess({id}){const a=S.attendance.find(x=>x.id===id);ui.subject=a.subject||'';ui.scope=a.scope||'all';ui.marks={...a.marks};render()},
-  newSess(){ui.subject='';ui.scope='all';ui.marks={};render()},
+  openSess({id}){const a=S.attendance.find(x=>x.id===id);ui.subject=a.subject||'';ui.scope=a.scope||'all';ui.time=a.time||'';ui.marks={...a.marks};render()},
+  newSess(){ui.subject='';ui.scope='all';ui.time=nowTime();ui.marks={};render()},
   saveAtt(){
     const rec=draftRec();if(!sessPool().length)return toast('No students to take attendance for');
     const i=S.attendance.findIndex(a=>akey(a)===akey(rec));if(i>=0){rec.id=S.attendance[i].id;S.attendance[i]=rec}else S.attendance.push(rec);
@@ -503,7 +507,7 @@ const acts={
   printAtt({id}){const a=attRec(id);if(!Object.keys(a.names).length)return toast('No students to print');const d=attData(a);
     printDoc(`<h1>${esc(d.title)}</h1><p>${esc(d.sub[0])}</p><table class="sum"><tr>${Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<td>${k}<b>${v}</b></td>`).join('')}</tr></table><table><thead><tr><th>#</th><th>Student</th><th>Type</th><th>Status</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table>`)},
   pdfAtt({id}){const a=attRec(id);if(!Object.keys(a.names).length)return toast('No students to export');const d=attData(a);
-    pdfFile('attendance-'+fileSafe(a.subject||'general')+'-'+a.date+'.pdf',{title:d.title,sub:d.sub,stats:Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v),sections:[{head:['#','Student','Type','Status'],body:d.rows,cols:{0:{cellWidth:12}}}]})},
+    pdfFile('attendance-'+fileSafe(a.subject||'general')+'-'+a.date+'.pdf',{title:d.title,sub:d.sub,stats:Object.entries(d.counts).filter(([k,v])=>k!=='Unmarked'||v),sections:[{head:['#','Student','Type'],body:d.rows.map(r=>r.slice(0,3)),cols:{0:{cellWidth:12}}}]})},
   toggleIrr({id}){const s=S.students.find(x=>x.id===id);s.irregular=!s.irregular;save('students');toast(s.name+' is now '+(s.irregular?'irregular':'regular'));render()},
   pdfSummary(){const{tot,groups,q}=sumCalc();if(!groups.length)return toast('Nothing to export');
     const fc=ui.fc==='all'?'All contributions':(S.contributions.find(c=>c.id===ui.fc)||{}).name,fs=ui.fs==='all'?'All statuses':ui.fs==='Partial'?'Partially paid':ui.fs;
@@ -515,7 +519,7 @@ const acts={
       stats:[['Required per student',pp(c.amount)],['Collected',pp(t.collected)],['Expected',pp(t.expected)],['Paid',t.Paid],['Partially paid',t.Partial],['Unpaid',t.Unpaid]],
       sections:[{head:['#','Student','Paid','Status'],body:rows.map((r,n)=>[n+1,r.s.name+(r.s.irregular?' (irregular)':''),r.i.paid>0?pp(r.i.paid):'',r.i.status==='Partial'?'Partially paid':r.i.status]),cols:{0:{cellWidth:10},2:{halign:'right'}}}]})},
   toggle({id}){ui.open[id]=!ui.open[id];render()},
-  editRec({id}){const a=S.attendance.find(x=>x.id===id);ui.date=a.date;ui.subject=a.subject||'';ui.scope=a.scope||'all';ui.marks={...a.marks};ui.keep=true;location.hash='attendance'},
+  editRec({id}){const a=S.attendance.find(x=>x.id===id);ui.date=a.date;ui.subject=a.subject||'';ui.scope=a.scope||'all';ui.time=a.time||'';ui.marks={...a.marks};ui.keep=true;location.hash='attendance'},
   delRec({id}){confirmBox('Delete record?','This attendance record will be permanently removed.','Delete',()=>{S.attendance=S.attendance.filter(a=>a.id!==id);save('attendance')})},
   editStudent({id}){const s=S.students.find(x=>x.id===id);modal('Edit student',nameForm(s.name),'Save changes',f=>{const n=f.get('name').trim();if(!n)return false;if(S.students.some(x=>x.id!==id&&x.name.toLowerCase()===n.toLowerCase())){toast('That name is already in the list');return false}s.name=n;save('students');toast('Student updated')})},
   delStudent({id}){const s=S.students.find(x=>x.id===id);confirmBox('Remove student?',`${esc(s.name)} and all their payments will be permanently deleted. Archiving keeps the records. Past attendance records keep the name.`,'Remove',()=>{S.students=S.students.filter(x=>x.id!==id);S.payments=S.payments.filter(p=>p.studentId!==id);delete ui.marks[id];save('students');save('payments')})},
@@ -538,6 +542,7 @@ document.addEventListener('input',e=>{
   if(e.target.id==='bt')bulkPreview(e.target.value);
   if(e.target.id==='ap')$('#pp').hidden=e.target.value!=='person';
   if(e.target.id==='sj')ui.subject=e.target.value;
+  if(e.target.id==='tm')ui.time=e.target.value;
   if(e.target.id==='sc'){ui.scope=e.target.value;render()}
   if(e.target.id==='fc'){ui.fc=e.target.value;render()}
   if(e.target.id==='fs'){ui.fs=e.target.value;render()}
