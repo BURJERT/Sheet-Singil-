@@ -467,7 +467,7 @@ const vMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const vPass=p=>p.length<8?'Password must be at least 8 characters.':!/[A-Za-z]/.test(p)||!/\d/.test(p)?'Password needs at least one letter and one number.':'';
 const OFFMSG=a=>'You’re offline. Connect to the internet to '+a+'.';
 const acts={
-  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'}])},
+  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 14'}])},
   rowmenu(d,b){const s=S.students.find(x=>x.id===d.id);if(!s)return;openMenu(b,d.arch?[{act:'restoreStudent',id:s.id,label:'Restore'},{act:'delStudent',id:s.id,label:'Delete permanently',cls:'dng'}]:[{act:'toggleIrr',id:s.id,label:s.irregular?'Mark regular':'Mark irregular'},{act:'editStudent',id:s.id,label:'Edit'},{act:'archive',id:s.id,label:'Archive'}])},
   archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
   restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},
@@ -613,7 +613,12 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()}
 setInterval(refresh,60000);
 window.addEventListener('online',()=>{setSync();if(user&&role){if(needsReconcile||failed)acts.retry();else refresh()}});
 window.addEventListener('offline',setSync);
-if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
+  /* When a new version is installed, reload once so you never keep seeing the old one. */
+  const had=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!reloaded&&!document.querySelector('dialog[open]')){reloaded=true;location.reload()}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 boot();
 </script>
 </body>
