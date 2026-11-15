@@ -5,7 +5,7 @@
      5 Buttons         6 Forms         7 List rows       8 Attendance buttons
      9 Chips + status colors + badges  10 Progress + small bits
      11 Dialogs + toast  12 Phone layout  13 Print  14 Summary tables
-     15 Sync status + text links
+     15 Sync status + text links  16 Menus (burger + 3-dot)
    Colors that carry meaning: --present --absent --late --excused (attendance)
                               --paid --partial --unpaid (payments)
    Quick restyle: change the variables in sections 1 and 2 only.
@@ -146,3 +146,19 @@ header.top,.noprint,#toast,dialog,body::before{display:none!important}
 #sync{font-size:13px;font-weight:700;color:var(--mute)}
 #sync button{font:inherit;color:var(--absent);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px}
 .lnk{background:none;border:0;color:var(--accent);font:700 14px var(--font);cursor:pointer;padding:8px 0;text-decoration:underline}
+
+/* ---------- 16. MENUS: burger button, 3-dot buttons, pop-up menu ---------- */
+.icon-btn,.dots{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;cursor:pointer}
+.icon-btn{width:44px;height:44px;order:4}
+.icon-btn[hidden]{display:none}
+.dots{width:44px;height:44px;border-color:transparent;background:transparent;color:var(--mute);flex:none}
+.dots:hover,.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+nav{order:3}
+.menu{position:fixed;z-index:30;min-width:230px;max-width:calc(100vw - 16px);background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 12px 32px rgba(10,10,30,.22)}
+.menu[hidden]{display:none}
+.menu button{display:block;width:100%;text-align:left;min-height:44px;padding:0 14px;border:0;background:none;color:inherit;font:600 15px var(--font);border-radius:10px;cursor:pointer}
+.menu button:hover,.menu button:focus-visible{background:var(--accent-soft)}
+.menu button.dng{color:var(--absent)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
+.menu-head{padding:8px 14px;font-size:13px;color:var(--mute);word-break:break-all}
+@media(max-width:640px){#burger{order:3}nav{order:4;flex-basis:100%}}
