@@ -13,14 +13,16 @@
 <!-- ============ END FAVICON ============ -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f46e5">
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <header class="top"><div class="wrap">
 <a class="brand" href="#home">Fund Sheet</a>
 <span id="sync" role="status"></span>
 <nav id="nav"></nav>
+<button id="burger" class="icon-btn" data-act="menu" aria-label="Open menu" aria-haspopup="menu" aria-expanded="false" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div></header>
+<div id="menu" class="menu" role="menu" hidden></div>
 <main class="wrap" id="app"></main>
 <dialog id="dlg"><form id="dlgForm"><h2 id="dlgT"></h2><div id="dlgB"></div>
 <div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
@@ -48,7 +50,7 @@ const roster=()=>S.students.filter(s=>!s.inactive);
 const ck=()=>'cm2_'+(user&&user.id);
 const stable=o=>o&&typeof o==='object'?Array.isArray(o)?'['+o.map(stable)+']':'{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}':JSON.stringify(o);
 /* sig(): a stable fingerprint of a row, used to tell whether it changed */
-const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.inactive;if(o.irregular===false)delete o.irregular;if('marks' in o){o.subject=o.subject||'';o.scope=o.scope||'all';o.time=o.time||''}if('amount' in o&&'due' in o){if(!o.appliesTo||o.appliesTo==='class')o.appliesTo='all';if(!o.studentIds)o.studentIds=[]}if(typeof o.amount==='number')o.amount=Math.round(o.amount*100)/100;if('notes' in o&&o.notes==null)o.notes='';return stable(o)};
+const sig=r=>{const o={...r};delete o.savedAt;if(o.inactive===false)delete o.inactive;if(o.irregular===false)delete o.irregular;if('marks' in o){o.subject=o.subject||'';o.scope=o.scope||'all';o.time=o.time||''}if('amount' in o&&'due' in o){if(!o.appliesTo||o.appliesTo==='class')o.appliesTo='all';if(!o.studentIds)o.studentIds=[];if(!o.kind)o.kind='once';if(o.weeks==null)o.weeks=0}if(typeof o.amount==='number')o.amount=Math.round(o.amount*100)/100;if('notes' in o&&o.notes==null)o.notes='';return stable(o)};
 const NOTE={overwrote:'your offline edit replaced a newer change',kept:'kept a change made elsewhere instead of deleting it',dropped:'payment skipped because its student or contribution was deleted'};
 const note=(table,action,row)=>({t:Date.now(),table,action,row});
 function setSync(){const e=$('#sync');if(!e)return;
@@ -205,11 +207,23 @@ const empty=t=>`<div class="empty">${t}</div>`;
 const searchBar=ph=>`<div class="bar"><input id="q" type="search" placeholder="${ph}" value="${esc(ui.q)}" aria-label="${ph}" autocomplete="off"></div>`;
 
 /* ---------- Domain logic ---------- */
+const isW=c=>c.kind==='weekly';
+const wkTotal=c=>isW(c)?Math.max(1,c.weeks|0):1;
+const requiredTotal=c=>c.amount*wkTotal(c);
+function wkDueCount(c){if(!isW(c))return 1;const st=new Date((c.due||c.created||today())+'T00:00'),n=Math.floor((new Date(today()+'T00:00')-st)/(7*864e5))+1;return Math.max(0,Math.min(wkTotal(c),n))}
+const dueNow=c=>isW(c)?c.amount*wkDueCount(c):c.amount;
 function payInfo(c,sid){
   const list=S.payments.filter(p=>p.contributionId===c.id&&p.studentId===sid).sort((a,b)=>a.date.localeCompare(b.date));
-  const paid=list.reduce((t,p)=>t+p.amount,0),bal=Math.max(0,c.amount-paid);
-  return{list,paid,bal,status:paid>=c.amount?'Paid':paid>0?'Partial':'Unpaid'};
+  const paid=list.reduce((t,p)=>t+p.amount,0);
+  if(!isW(c)){const bal=Math.max(0,c.amount-paid);return{list,paid,bal,status:paid>=c.amount?'Paid':paid>0?'Partial':'Unpaid'}}
+  const due=dueNow(c),weeksPaid=Math.min(wkTotal(c),Math.floor(paid/c.amount+1e-9));
+  return{list,paid,bal:Math.max(0,due-paid),remaining:Math.max(0,requiredTotal(c)-paid),weeksPaid,ahead:Math.max(0,weeksPaid-wkDueCount(c)),status:paid>=due&&(due>0||paid>0)?'Paid':paid>0?'Partial':'Unpaid'};
 }
+const cMeta=(c,m=peso)=>isW(c)?[m(c.amount)+' per week',wkTotal(c)+' weeks',aLabel(c),'Starts '+fmt(c.due),wkDueCount(c)>0?'Now week '+wkDueCount(c):'Not started'].join(' · '):[m(c.amount)+' per student',aLabel(c),'Due '+fmt(c.due)].join(' · ');
+const rowMeta=(c,i)=>isW(c)?`Paid ${peso(i.paid)} · ${i.weeksPaid} of ${wkTotal(c)} weeks paid · ${i.bal>0?'Due now '+peso(i.bal):i.ahead>0?i.ahead+' week'+(i.ahead>1?'s':'')+' ahead':'Up to date'}`:`Required ${peso(c.amount)} · Paid ${peso(i.paid)} · Balance ${peso(i.bal)}`;
+const wkCell=(c,i)=>i.weeksPaid+' of '+wkTotal(c)+(i.ahead>0?' (+'+i.ahead+' ahead)':'');
+const wkNote=(c,i,p)=>{if(!isW(c))return'';let run=0;for(const x of i.list){run+=x.amount;if(x.id===p.id)break}return ' · through week '+Math.min(wkTotal(c),Math.floor(run/c.amount+1e-9))};
+function payCap(c,sid,amt,except){if(!c||!isW(c))return'';const paid=S.payments.filter(p=>p.contributionId===c.id&&p.studentId===sid&&p.id!==except).reduce((t,p)=>t+p.amount,0);return paid+amt>requiredTotal(c)+0.005?'That is more than the whole term. Remaining: '+peso(Math.max(0,requiredTotal(c)-paid)):''}
 function applies(c,s){const a=c.appliesTo||'all';return a==='person'?(c.studentIds||[]).includes(s.id):a==='regular'?!s.irregular:a==='irregular'?!!s.irregular:true}
 const target=c=>roster().filter(s=>applies(c,s));
 const aLabel=c=>{const a=c.appliesTo;return a==='person'?'Selected students ('+(c.studentIds||[]).length+')':a==='regular'?'Regular students':a==='irregular'?'Irregular students':'All students'};
@@ -217,7 +231,7 @@ const akey=a=>a.date+'|'+(a.subject||'').trim().toLowerCase();
 const scopeLabel=x=>x==='regular'?'Regular students':x==='irregular'?'Irregular students':'All students';
 const sessPool=()=>roster().filter(s=>ui.scope==='regular'?!s.irregular:ui.scope==='irregular'?!!s.irregular:true);
 function cStats(c){
-  const r={collected:S.payments.filter(p=>p.contributionId===c.id).reduce((t,p)=>t+p.amount,0),Paid:0,Partial:0,Unpaid:0,expected:c.amount*target(c).length};
+  const r={collected:S.payments.filter(p=>p.contributionId===c.id).reduce((t,p)=>t+p.amount,0),Paid:0,Partial:0,Unpaid:0,expected:requiredTotal(c)*target(c).length};
   target(c).forEach(s=>{r[payInfo(c,s.id).status]++});
   return r;
 }
@@ -249,17 +263,14 @@ home(){
    ${can('tre')?`<a class="card hero" href="#treasurer"><h2>Treasurer</h2><p>Create contributions and record payments.</p></a>`:''}
   </div>
   ${can('stu')?`<a class="card hero" href="#students"><h2>Students</h2><p>One shared class list for attendance and payments. Add, edit or archive students.</p></a>`:''}
-  ${can('adm')?`<div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:28px"><div style="flex:1;min-width:180px"><h2>Backup</h2><p class="sub" style="margin:0">Save a copy of all your data, or load one back in.</p></div><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
-  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>New semester</h2><p class="sub" style="margin:0">Clear attendance, contributions and payments to start fresh.</p></div><button class="btn" data-act="newSem">Start new semester</button></div>`:''}
-  ${notesCard()}
-  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><h2>Account</h2><p class="sub" style="margin:0">Signed in as ${esc(user&&user.email)}</p></div><button class="btn" data-act="editSection">${sec()?'Edit section name':'Set section name'}</button><button class="btn dng" data-act="signout">Sign out</button></div>`;
+  ${notesCard()}`;
 },
 students(){
   const list=roster().filter(match).sort(byName),ina=S.students.filter(s=>s.inactive&&match(s)).sort(byName);
   return `<h1>Students</h1><p class="sub">This list is shared by Attendance and Treasurer. Mark irregular students so you can pick them separately.</p>
   <form class="card bar" data-form="addStudent" style="margin-bottom:14px"><input name="name" placeholder="Student name" required aria-label="Student name" autocomplete="off"><label style="display:flex;align-items:center;gap:8px;font-weight:600;margin:0"><input type="checkbox" name="irr" style="width:auto;min-height:0;flex:none;min-width:0">Irregular</label><button class="btn pri">Add student</button><button type="button" class="btn" data-act="bulk">Bulk add</button></form>
   ${S.students.length>6?searchBar('Search students'):''}
-  <div class="card">${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}${s.irregular?' <span class="badge Excused" style="font-size:11px;margin-left:6px">Irregular</span>':''}</span><div class="acts"><button class="btn sm" data-act="toggleIrr" data-id="${s.id}">${s.irregular?'Mark regular':'Mark irregular'}</button><button class="btn sm" data-act="editStudent" data-id="${s.id}">Edit</button><button class="btn sm" data-act="archive" data-id="${s.id}">Archive</button></div></div>`).join(''):empty(roster().length?'No student matches your search.':'No students yet. Add your first student above.')}</div>${ina.length?`<h2 style="margin:24px 0 4px">Archived (${ina.length})</h2><p class="sub">Hidden from attendance and payments. Their records are kept.</p><div class="card">${ina.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><div class="acts"><button class="btn sm" data-act="restoreStudent" data-id="${s.id}">Restore</button><button class="btn sm dng" data-act="delStudent" data-id="${s.id}">Delete permanently</button></div></div>`).join('')}</div>`:''}`;
+  <div class="card">${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}${s.irregular?' <span class="badge Excused" style="font-size:11px;margin-left:6px">Irregular</span>':''}</span><button class="dots" data-act="rowmenu" data-id="${s.id}" aria-label="Options for ${esc(s.name)}" aria-haspopup="menu" aria-expanded="false">${DOTS}</button></div>`).join(''):empty(roster().length?'No student matches your search.':'No students yet. Add your first student above.')}</div>${ina.length?`<h2 style="margin:24px 0 4px">Archived (${ina.length})</h2><p class="sub">Hidden from attendance and payments. Their records are kept.</p><div class="card">${ina.map(s=>`<div class="row"><span class="nm">${esc(s.name)}</span><button class="dots" data-act="rowmenu" data-id="${s.id}" data-arch="1" aria-label="Options for ${esc(s.name)}" aria-haspopup="menu" aria-expanded="false">${DOTS}</button></div>`).join('')}</div>`:''}`;
 },
 attendance(){
   const pool=sessPool(),list=pool.filter(match).sort(byName),r=attCounts(ui.marks,pool.map(s=>s.id));
@@ -291,7 +302,7 @@ treasurer(){
   <div class="bar"><button class="btn pri" data-act="newC">New contribution</button><a class="btn" href="#summary">Full summary</a></div>
   ${act.length?act.map(c=>{const t=cStats(c),pct=t.expected?Math.min(100,t.collected/t.expected*100):0;
    const late=c.due&&c.due<today()&&t.Paid<target(c).length;
-   return `<a class="card hero" href="#c/${c.id}" style="display:block"><h2>${esc(c.name)}</h2><div class="meta" style="color:var(--mute);font-size:14px">${peso(c.amount)} per student · ${esc(aLabel(c))} · Due ${fmt(c.due)}${late?' · <b class="Unpaid">Overdue</b>':''}</div>
+   return `<a class="card hero" href="#c/${c.id}" style="display:block"><h2>${esc(c.name)}</h2><div class="meta" style="color:var(--mute);font-size:14px">${esc(cMeta(c))}${late?' · <b class="Unpaid">Overdue</b>':''}</div>
    <div class="prog"><i style="width:${pct}%"></i></div><div class="big">${peso(t.collected)} <span class="meta" style="font-size:15px;font-weight:600;color:var(--mute)">of ${peso(t.expected)}</span></div>
    <div class="chips" style="margin:10px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partial: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div></a>`}).join(''):`<div class="card">${empty(cs.length?'All contributions are complete.':'No contributions yet. Create one to start collecting.')}</div>`}
   ${dn.length?`<h2 style="margin:28px 0 4px">Completed (${dn.length})</h2><p class="sub">Paid in full by everyone. Remove them to keep your list clean.</p>${dn.map(c=>`<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:160px"><h2>${esc(c.name)}</h2><div style="color:var(--mute);font-size:14px">${peso(cStats(c).collected)} collected · <b class="Paid">Complete</b></div></div><a class="btn sm" href="#c/${c.id}">View</a><button class="btn sm dng" data-act="delC" data-id="${c.id}">Remove</button></div>`).join('')}<button class="btn dng" data-act="delDone">Remove all completed</button>`:''}`;
@@ -299,7 +310,7 @@ treasurer(){
 summary(){
   const{cs,sts,tot,groups,q,shown,fpaid,fbal}=sumCalc();
   const fname=ui.fc==='all'?'All contributions':esc(cs.find(c=>c.id===ui.fc).name),flab=ui.fs==='all'?'All statuses':ui.fs==='Partial'?'Partially paid':ui.fs;
-  const body=groups.length?groups.map(g=>`<div class="card"><h2>${esc(g.c.name)}</h2><div style="color:var(--mute);font-size:14px">${peso(g.c.amount)} per student · ${aLabel(g.c)} · Due ${fmt(g.c.due)} · Collected ${peso(g.t.collected)} of ${peso(g.t.expected)}</div><div style="overflow-x:auto"><table class="st"><thead><tr><th>Student</th><th class="r">Required</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${g.rows.map(r=>`<tr><td>${esc(r.s.name)}</td><td class="r">${peso(g.c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td><span class="badge ${r.i.status}">${r.i.status}</span></td></tr>`).join('')}</tbody></table></div><p class="noprint" style="margin:12px 0 0"><a href="#c/${g.c.id}" style="color:var(--accent);font-weight:700;text-decoration:none">Open to record payments ›</a></p></div>`).join(''):`<div class="card">${empty(!cs.length?'No contributions yet. Create one in Treasurer.':'No records match your filters.')}</div>`;
+  const body=groups.length?groups.map(g=>`<div class="card"><h2>${esc(g.c.name)}</h2><div style="color:var(--mute);font-size:14px">${esc(cMeta(g.c))} · Collected ${peso(g.t.collected)} of ${peso(g.t.expected)}</div><div style="overflow-x:auto"><table class="st"><thead><tr><th>Student</th><th class="r">${isW(g.c)?'Due to date':'Required'}</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${g.rows.map(r=>`<tr><td>${esc(r.s.name)}</td><td class="r">${peso(isW(g.c)?dueNow(g.c):g.c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td><span class="badge ${r.i.status}">${r.i.status}</span>${isW(g.c)?'<div style="font-size:12px;color:var(--mute)">'+wkCell(g.c,r.i)+'</div>':''}</td></tr>`).join('')}</tbody></table></div><p class="noprint" style="margin:12px 0 0"><a href="#c/${g.c.id}" style="color:var(--accent);font-weight:700;text-decoration:none">Open to record payments ›</a></p></div>`).join(''):`<div class="card">${empty(!cs.length?'No contributions yet. Create one in Treasurer.':'No records match your filters.')}</div>`;
   return `<div class="noprint"><p style="margin:20px 0 0"><a href="#treasurer" style="color:var(--accent);font-weight:700;text-decoration:none">‹ Treasurer</a></p>
   <h1 style="margin-top:8px">Full summary</h1><p class="sub">Every contribution and every student’s payments in one place.</p>
   <div class="card"><div class="grid2" style="gap:20px"><div><div style="color:var(--mute);font-size:14px">Total collected</div><div class="big">${peso(tot.coll)}</div></div><div><div style="color:var(--mute);font-size:14px">Outstanding balance</div><div class="big">${peso(tot.out)}</div></div></div>
@@ -330,19 +341,19 @@ contribution(id){
   const c=S.contributions.find(x=>x.id===id);if(!c)return `<h1>Not found</h1><a class="btn" href="#treasurer">Back</a>`;
   const t=cStats(c),list=target(c).filter(match).sort(byName);
   return `<div class="noprint"><p style="margin:20px 0 0"><a href="#treasurer" style="color:var(--accent);font-weight:700;text-decoration:none">‹ All contributions</a></p>
-  <h1 style="margin-top:8px">${esc(c.name)}</h1><p class="sub">${peso(c.amount)} per student · ${esc(aLabel(c))} · Due ${fmt(c.due)}${c.notes?'<br>'+esc(c.notes):''}</p>
+  <h1 style="margin-top:8px">${esc(c.name)}</h1><p class="sub">${esc(cMeta(c))}${c.notes?'<br>'+esc(c.notes):''}</p>
   <div class="card"><div class="big">${peso(t.collected)} <span style="font-size:15px;font-weight:600;color:var(--mute)">collected of ${peso(t.expected)}</span></div>
   <div class="chips" style="margin:12px 0 0"><span class="chip Paid">Paid: ${t.Paid}</span><span class="chip Partial">Partially paid: ${t.Partial}</span><span class="chip Unpaid">Unpaid: ${t.Unpaid}</span></div>
   <div class="acts" style="margin-top:14px"><button class="btn sm pri" data-act="print">Print records</button><button class="btn sm" data-act="pdfC" data-id="${c.id}">Download PDF</button><button class="btn sm" data-act="editC" data-id="${c.id}">Edit</button><button class="btn sm dng" data-act="delC" data-id="${c.id}">Delete contribution</button></div></div>
   ${searchBar('Search students')}
   <div class="card">${list.length?list.map(s=>{const i=payInfo(c,s.id),o=ui.open[c.id+s.id];
-   return `<div class="row" style="align-items:flex-start"><div class="nm"><div>${esc(s.name)}</div><div class="meta">Required ${peso(c.amount)} · Paid ${peso(i.paid)} · Balance ${peso(i.bal)}</div></div>
+   return `<div class="row" style="align-items:flex-start"><div class="nm"><div>${esc(s.name)}</div><div class="meta">${esc(rowMeta(c,i))}</div></div>
    <span class="badge ${i.status}">${i.status}</span>
    <div class="acts"><button class="btn sm pri" data-act="pay" data-c="${c.id}" data-id="${s.id}">Record payment</button><button class="btn sm" data-act="toggle" data-id="${c.id+s.id}">History (${i.list.length})</button></div>
-   ${o?`<div style="width:100%">${i.list.length?i.list.map(p=>`<div class="pay"><span>${fmt(p.date)}</span><b>${peso(p.amount)}</b><button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm dng" data-act="delPay" data-id="${p.id}">Delete</button></div>`).join(''):'<div class="meta" style="padding:8px 0">No payments yet.</div>'}</div>`:''}</div>`}).join(''):empty(S.students.length?'No student matches your search.':'Add students first, then payments will appear here.')}</div></div>${printSheet(c,t)}`;
+   ${o?`<div style="width:100%">${i.list.length?i.list.map(p=>`<div class="pay"><span>${fmt(p.date)}${esc(wkNote(c,i,p))}</span><b>${peso(p.amount)}</b><button class="btn sm" data-act="editPay" data-id="${p.id}">Edit</button><button class="btn sm dng" data-act="delPay" data-id="${p.id}">Delete</button></div>`).join(''):'<div class="meta" style="padding:8px 0">No payments yet.</div>'}</div>`:''}</div>`}).join(''):empty(S.students.length?'No student matches your search.':'Add students first, then payments will appear here.')}</div></div>${printSheet(c,t)}`;
 }};
 
-const isDone=c=>{const n=target(c).length;return n>0&&cStats(c).Paid===n};
+const isDone=c=>{const ts=target(c);return ts.length>0&&(isW(c)?ts.every(s=>payInfo(c,s.id).paid>=requiredTotal(c)-0.005):cStats(c).Paid===ts.length)};
 function sumCalc(){
   const cs=[...S.contributions].sort((a,b)=>(a.due||'9').localeCompare(b.due||'9')),sts=roster().sort(byName);
   if(ui.fc!=='all'&&!cs.some(c=>c.id===ui.fc))ui.fc='all';
@@ -357,10 +368,10 @@ function printSheet(c,t){
   const rows=target(c).sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
   const out=rows.reduce((a,r)=>a+r.i.bal,0);
   return `<section class="print-only"><h1>${esc(c.name)}</h1>
-  <p>${sec()?esc(sec())+' · ':''}Payment records · ${esc(aLabel(c))} · Due ${fmt(c.due)} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
-  <table class="sum"><tr><td>Required per student<b>${peso(c.amount)}</b></td><td>Total collected<b>${peso(t.collected)}</b></td><td>Expected total<b>${peso(t.expected)}</b></td><td>Outstanding<b>${peso(out)}</b></td></tr>
+  <p>${sec()?esc(sec())+' · ':''}Payment records · ${esc(cMeta(c))} · Printed ${fmt(today())}</p>${c.notes?`<p>${esc(c.notes)}</p>`:''}
+  <table class="sum"><tr><td>${isW(c)?'Per week':'Required per student'}<b>${peso(c.amount)}</b></td><td>Total collected<b>${peso(t.collected)}</b></td><td>Expected total<b>${peso(t.expected)}</b></td><td>Outstanding<b>${peso(out)}</b></td></tr>
   <tr><td>Paid<b>${t.Paid}</b></td><td>Partially paid<b>${t.Partial}</b></td><td>Unpaid<b>${t.Unpaid}</b></td><td>Students<b>${rows.length}</b></td></tr></table>
-  <table class="lst"><thead><tr><th>#</th><th>Student</th><th class="r">Required</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${rows.map((r,n)=>`<tr><td>${n+1}</td><td>${esc(r.s.name)}</td><td class="r">${peso(c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td>${r.i.status==='Partial'?'Partially paid':r.i.status}</td></tr>`).join('')}</tbody></table></section>`}
+  <table class="lst"><thead><tr><th>#</th><th>Student</th><th class="r">${isW(c)?'Due to date':'Required'}</th><th class="r">Paid</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>${rows.map((r,n)=>`<tr><td>${n+1}</td><td>${esc(r.s.name)}</td><td class="r">${peso(isW(c)?dueNow(c):c.amount)}</td><td class="r">${peso(r.i.paid)}</td><td class="r">${peso(r.i.bal)}</td><td>${r.i.status==='Partial'?'Partially paid':r.i.status}${isW(c)?' ('+wkCell(c,r.i)+')':''}</td></tr>`).join('')}</tbody></table></section>`}
 
 /* ---------- Bulk add helpers ---------- */
 function parseNames(txt){
@@ -407,11 +418,26 @@ function attData(a){
   return{title:(a.subject||'General')+' - Attendance',sub:[[sec(),fmt(a.date),fmtTime(a.time),scopeLabel(a.scope)].filter(Boolean).join(' · ')],counts:r,rows:ids.map((id,i)=>[i+1,a.names[id]+(irr(id)?' (irregular)':''),irr(id)?'Irregular':'Regular',a.marks[id]||'Unmarked'])};
 }
 function attRec(id){return id?S.attendance.find(a=>a.id===id):draftRec()}
+/* ---------- Pop-up menus (burger + 3-dot) ---------- */
+const DOTS='<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+let menuFor=null;
+function closeMenu(){const m=$('#menu');if(m)m.hidden=true;if(menuFor){menuFor.setAttribute('aria-expanded','false');menuFor=null}}
+function openMenu(btn,items){
+  const m=$('#menu');if(!m)return;if(menuFor===btn){closeMenu();return}
+  closeMenu();
+  m.innerHTML=items.map(it=>it.head?`<div class="menu-head">${it.head}</div>`:it.sep?'<hr>':`<button type="button" role="menuitem"${it.cls?` class="${it.cls}"`:''} data-act="${it.act}"${it.id?` data-id="${it.id}"`:''}>${it.label}</button>`).join('');
+  m.hidden=false;menuFor=btn;btn.setAttribute('aria-expanded','true');
+  const r=btn.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;
+  let left=Math.min(Math.max(8,r.right-w),innerWidth-w-8),top=r.bottom+6;if(top+h>innerHeight-8)top=Math.max(8,r.top-h-6);
+  m.style.left=left+'px';m.style.top=top+'px';
+  const f=m.querySelector('button');if(f)f.focus({preventScroll:true});
+}
 /* ---------- Router & render ---------- */
 function route(){const h=location.hash.slice(1)||'home';return h.startsWith('c/')?['contribution',h.slice(2)]:[views[h]?h:'home']}
 function render(){
   const keep=document.activeElement&&document.activeElement.id==='q';
   if(!sb)return;
+  const bg=$('#burger');if(bg)bg.hidden=!user||recovering;if(!user||recovering)closeMenu();
   if(recovering||!user){$('#app').innerHTML=views.login();$('#nav').innerHTML='';return}
   let[v,arg]=route();if(NEED[v]&&!can(NEED[v]))v='home';
   $('#app').innerHTML=views[v](arg);
@@ -423,14 +449,16 @@ function render(){
 window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){if(ui.keep)ui.keep=false;else{ui.date=today();ui.subject='';ui.scope='all';ui.time=nowTime();loadDraft()}}render();window.scrollTo(0,0)});
 
 /* ---------- Actions ---------- */
-function cForm(c){const a=c?(c.appliesTo==='class'?'all':c.appliesTo||'all'):'all',ids=new Set((c&&c.studentIds)||[]);
-  return `<label for="cn">Contribution name</label><input id="cn" name="name" required placeholder="e.g. Field trip fee" value="${esc(c?c.name:'')}"><label for="ca">Required amount per student (₱)</label><input id="ca" name="amount" type="number" min="0.01" step="0.01" required value="${c?c.amount:''}"><label for="cd">Due date</label><input id="cd" name="due" type="date" value="${esc(c?c.due||'':'')}"><label for="ap">Applies to</label><select id="ap" name="applies">${[['all','All students'],['regular','Regular students only'],['irregular','Irregular students only'],['person','Selected students (per person)']].map(([v,l])=>`<option value="${v}"${a===v?' selected':''}>${l}</option>`).join('')}</select>
+function cForm(c){const a=c?(c.appliesTo==='class'?'all':c.appliesTo||'all'):'all',ids=new Set((c&&c.studentIds)||[]),wk=!!(c&&isW(c));
+  return `<label for="cn">Contribution name</label><input id="cn" name="name" required placeholder="e.g. Field trip fee" value="${esc(c?c.name:'')}"><label for="ck">Payment type</label><select id="ck" name="kind"><option value="once"${wk?'':' selected'}>One-time payment</option><option value="weekly"${wk?' selected':''}>Regular (weekly) payment</option></select><div id="wkrow"${wk?'':' hidden'}><label for="cw">Number of weeks</label><input id="cw" name="weeks" type="number" min="1" max="60" step="1" value="${wk?c.weeks:18}"><p style="color:var(--mute);font-size:13px;margin:8px 0 0">Each student pays the amount every week, and can pay several weeks ahead when you record a payment.</p></div><label for="ca" id="al">${wk?'Amount per week per student (₱)':'Required amount per student (₱)'}</label><input id="ca" name="amount" type="number" min="0.01" step="0.01" required value="${c?c.amount:''}"><label for="cd" id="dl">${wk?'First due date (week 1)':'Due date'}</label><input id="cd" name="due" type="date" value="${esc(c?c.due||'':'')}"><label for="ap">Applies to</label><select id="ap" name="applies">${[['all','All students'],['regular','Regular students only'],['irregular','Irregular students only'],['person','Selected students (per person)']].map(([v,l])=>`<option value="${v}"${a===v?' selected':''}>${l}</option>`).join('')}</select>
   <div id="pp" style="max-height:180px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:6px 12px"${a==='person'?'':' hidden'}>${roster().sort(byName).map(s=>`<label style="display:flex;gap:10px;align-items:center;font-weight:600;margin:6px 0"><input type="checkbox" name="sid" value="${s.id}" style="width:auto;min-height:0"${ids.has(s.id)?' checked':''}>${esc(s.name)}${s.irregular?' <span style="color:var(--mute);font-weight:500">(irregular)</span>':''}</label>`).join('')||'<p>No students yet.</p>'}</div>
   <label for="cx">Notes (optional)</label><textarea id="cx" name="notes">${esc(c?c.notes:'')}</textarea>`}
 function cRead(f){const name=f.get('name').trim(),amount=parseFloat(f.get('amount')),applies=f.get('applies'),ids=f.getAll('sid');
   if(!name||!(amount>0))return null;
   if(applies==='person'&&!ids.length){toast('Pick at least one student');return null}
-  return{name,amount,due:f.get('due'),notes:f.get('notes').trim(),appliesTo:applies,studentIds:applies==='person'?ids:[]}}
+  const kind=f.get('kind')==='weekly'?'weekly':'once';let weeks=0;
+  if(kind==='weekly'){weeks=parseInt(f.get('weeks'),10);if(!(weeks>=1&&weeks<=60)){toast('Enter the number of weeks (1 to 60)');return null}}
+  return{name,amount,due:f.get('due')||(kind==='weekly'?today():''),notes:f.get('notes').trim(),appliesTo:applies,studentIds:applies==='person'?ids:[],kind,weeks}}
 const nameForm=(v='')=>`<label for="n">Student name</label><input id="n" name="name" value="${esc(v)}" required autocomplete="off">`;
 const dateAmt=(a,d)=>`<label for="a">Amount (₱)</label><input id="a" name="amount" type="number" min="0.01" step="0.01" value="${a}" required><label for="d">Date</label><input id="d" name="date" type="date" value="${d}" required>`;
 const lm=(t,type)=>{const e=$('#lm');if(e){e.textContent=t;e.style.color=type==='ok'?'var(--present)':type==='info'?'var(--mute)':'var(--absent)'}};
@@ -439,6 +467,8 @@ const vMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const vPass=p=>p.length<8?'Password must be at least 8 characters.':!/[A-Za-z]/.test(p)||!/\d/.test(p)?'Password needs at least one letter and one number.':'';
 const OFFMSG=a=>'You’re offline. Connect to the internet to '+a+'.';
 const acts={
+  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'}])},
+  rowmenu(d,b){const s=S.students.find(x=>x.id===d.id);if(!s)return;openMenu(b,d.arch?[{act:'restoreStudent',id:s.id,label:'Restore'},{act:'delStudent',id:s.id,label:'Delete permanently',cls:'dng'}]:[{act:'toggleIrr',id:s.id,label:s.irregular?'Mark regular':'Mark irregular'},{act:'editStudent',id:s.id,label:'Edit'},{act:'archive',id:s.id,label:'Archive'}])},
   archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
   restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},
   restore(){$('#rf').click()},
@@ -513,11 +543,11 @@ const acts={
     const fc=ui.fc==='all'?'All contributions':(S.contributions.find(c=>c.id===ui.fc)||{}).name,fs=ui.fs==='all'?'All statuses':ui.fs==='Partial'?'Partially paid':ui.fs;
     pdfFile('payment-summary-'+today()+'.pdf',{title:'Full payment summary',sub:[[sec(),ABOUT.site,'Printed '+fmt(today())].filter(Boolean).join(' · '),'Filter: '+fc+' · '+fs+(q?' · Search "'+ui.q.trim()+'"':'')],
       stats:[['Total collected',pp(tot.coll)],['Outstanding',pp(tot.out)],['Paid',tot.Paid],['Partially paid',tot.Partial],['Unpaid',tot.Unpaid]],
-      sections:groups.map(g=>({heading:g.c.name,note:`${pp(g.c.amount)} per student · ${aLabel(g.c)} · Due ${fmt(g.c.due)} · Collected ${pp(g.t.collected)} of ${pp(g.t.expected)}`,head:['Student','Paid','Status'],body:g.rows.map(r=>[r.s.name+(r.s.irregular?' (irregular)':''),r.i.paid>0?pp(r.i.paid):'',r.i.status==='Partial'?'Partially paid':r.i.status]),cols:{1:{halign:'right'}}}))})},
+      sections:groups.map(g=>({heading:g.c.name,note:`${cMeta(g.c,pp)} · Collected ${pp(g.t.collected)} of ${pp(g.t.expected)}`,head:isW(g.c)?['Student','Paid','Weeks paid','Status']:['Student','Paid','Status'],body:g.rows.map(r=>[r.s.name+(r.s.irregular?' (irregular)':''),r.i.paid>0?pp(r.i.paid):''].concat(isW(g.c)?[wkCell(g.c,r.i)]:[],[r.i.status==='Partial'?'Partially paid':r.i.status])),cols:{1:{halign:'right'}}}))})},
   pdfC({id}){const c=S.contributions.find(x=>x.id===id),t=cStats(c),rows=target(c).sort(byName).map(s=>({s,i:payInfo(c,s.id)}));
-    pdfFile('contribution-'+fileSafe(c.name)+'-'+today()+'.pdf',{title:c.name+' - Payment records',sub:[[sec(),aLabel(c),'Due '+fmt(c.due),'Printed '+fmt(today())].filter(Boolean).join(' · ')].concat(c.notes?[c.notes]:[]),
-      stats:[['Required per student',pp(c.amount)],['Collected',pp(t.collected)],['Expected',pp(t.expected)],['Paid',t.Paid],['Partially paid',t.Partial],['Unpaid',t.Unpaid]],
-      sections:[{head:['#','Student','Paid','Status'],body:rows.map((r,n)=>[n+1,r.s.name+(r.s.irregular?' (irregular)':''),r.i.paid>0?pp(r.i.paid):'',r.i.status==='Partial'?'Partially paid':r.i.status]),cols:{0:{cellWidth:10},2:{halign:'right'}}}]})},
+    pdfFile('contribution-'+fileSafe(c.name)+'-'+today()+'.pdf',{title:c.name+' - Payment records',sub:[[sec(),cMeta(c,pp),'Printed '+fmt(today())].filter(Boolean).join(' · ')].concat(c.notes?[c.notes]:[]),
+      stats:[[isW(c)?'Per week':'Required per student',pp(c.amount)],['Collected',pp(t.collected)],['Expected',pp(t.expected)],['Paid',t.Paid],['Partially paid',t.Partial],['Unpaid',t.Unpaid]],
+      sections:[{head:isW(c)?['#','Student','Paid','Weeks paid','Status']:['#','Student','Paid','Status'],body:rows.map((r,n)=>[n+1,r.s.name+(r.s.irregular?' (irregular)':''),r.i.paid>0?pp(r.i.paid):''].concat(isW(c)?[wkCell(c,r.i)]:[],[r.i.status==='Partial'?'Partially paid':r.i.status])),cols:{0:{cellWidth:10},2:{halign:'right'}}}]})},
   toggle({id}){ui.open[id]=!ui.open[id];render()},
   editRec({id}){const a=S.attendance.find(x=>x.id===id);ui.date=a.date;ui.subject=a.subject||'';ui.scope=a.scope||'all';ui.time=a.time||'';ui.marks={...a.marks};ui.keep=true;location.hash='attendance'},
   delRec({id}){confirmBox('Delete record?','This attendance record will be permanently removed.','Delete',()=>{S.attendance=S.attendance.filter(a=>a.id!==id);save('attendance')})},
@@ -528,19 +558,32 @@ const acts={
     S.contributions.push(c);save('contributions');toast('Contribution created');location.hash='c/'+c.id;return true})},
   editC({id}){const c=S.contributions.find(x=>x.id===id);modal('Edit contribution',cForm(c),'Save changes',f=>{const v=cRead(f);if(!v)return false;Object.assign(c,v);save('contributions');toast('Contribution updated')})},
   delC({id}){confirmBox('Delete contribution?','All payments recorded for it will also be deleted.','Delete',()=>{S.contributions=S.contributions.filter(c=>c.id!==id);S.payments=S.payments.filter(p=>p.contributionId!==id);save('contributions');save('payments');location.hash='treasurer'})},
-  pay({c,id}){const con=S.contributions.find(x=>x.id===c),s=S.students.find(x=>x.id===id),i=payInfo(con,id);
-    modal('Payment · '+s.name,`<p class="meta" style="color:var(--mute)">Balance: ${peso(i.bal)}</p>`+dateAmt(i.bal||'',today()),'Save payment',f=>{
+  pay({c,id}){const con=S.contributions.find(x=>x.id===c),s=S.students.find(x=>x.id===id),i=payInfo(con,id),w=isW(con);
+    const opts=w?[['Amount due now',i.bal],['1 week',con.amount],['2 weeks',con.amount*2],['4 weeks',con.amount*4],['Rest of the term',i.remaining]].filter(([l,v],n,a)=>v>0&&v<=i.remaining+0.005&&a.findIndex(x=>x[1]===v)===n):[];
+    const info=w?`<p style="color:var(--mute);margin:0 0 8px">${esc(rowMeta(con,i))}</p>`:`<p class="meta" style="color:var(--mute)">Balance: ${peso(i.bal)}</p>`;
+    const quick=opts.length?`<label for="pq">Quick amount (pay ahead if you like)</label><select id="pq"><option value="">Custom amount</option>${opts.map(([l,v])=>`<option value="${v}">${l} (${peso(v)})</option>`).join('')}</select>`:'';
+    modal('Payment · '+s.name,info+quick+dateAmt(w?(i.bal||con.amount):(i.bal||''),today()),'Save payment',f=>{
       const amount=parseFloat(f.get('amount'));if(!(amount>0))return false;
+      const cap=payCap(con,id,amount);if(cap){toast(cap);return false}
       S.payments.push({id:uid(),contributionId:c,studentId:id,amount,date:f.get('date')});save('payments');toast(isDone(con)?'Payment recorded. This contribution is now complete!':'Payment recorded')})},
   editPay({id}){const p=S.payments.find(x=>x.id===id);modal('Edit payment',dateAmt(p.amount,p.date),'Save changes',f=>{
-    const amount=parseFloat(f.get('amount'));if(!(amount>0))return false;p.amount=amount;p.date=f.get('date');save('payments');toast('Payment updated')})},
+    const amount=parseFloat(f.get('amount'));if(!(amount>0))return false;const cap=payCap(S.contributions.find(x=>x.id===p.contributionId),p.studentId,amount,p.id);if(cap){toast(cap);return false}p.amount=amount;p.date=f.get('date');save('payments');toast('Payment updated')})},
   delPay({id}){confirmBox('Delete payment?','This payment will be removed from the history.','Delete',()=>{S.payments=S.payments.filter(p=>p.id!==id);save('payments')})}
 };
-document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b)acts[b.dataset.act](b.dataset)});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(!b){if(!e.target.closest('#menu'))closeMenu();return}
+  if(b.dataset.act!=='menu'&&b.dataset.act!=='rowmenu')closeMenu();
+  acts[b.dataset.act](b.dataset,b);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menuFor){const t=menuFor;closeMenu();t.focus()}});
+window.addEventListener('resize',closeMenu);window.addEventListener('scroll',closeMenu,true);window.addEventListener('hashchange',closeMenu);
 document.addEventListener('input',e=>{
   if(e.target.id==='q'){ui.q=e.target.value;render()}
   if(e.target.id==='bt')bulkPreview(e.target.value);
   if(e.target.id==='ap')$('#pp').hidden=e.target.value!=='person';
+  if(e.target.id==='ck'){const w=e.target.value==='weekly';$('#wkrow').hidden=!w;$('#al').textContent=w?'Amount per week per student (₱)':'Required amount per student (₱)';$('#dl').textContent=w?'First due date (week 1)':'Due date'}
+  if(e.target.id==='pq'&&e.target.value)$('#a').value=e.target.value;
   if(e.target.id==='sj')ui.subject=e.target.value;
   if(e.target.id==='tm')ui.time=e.target.value;
   if(e.target.id==='sc'){ui.scope=e.target.value;render()}
