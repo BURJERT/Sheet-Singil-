@@ -189,3 +189,7 @@ nav{order:3}
   .att-row .seg{max-width:none}
   .seg button{padding:0 2px}
 }
+
+/* Dialog footer: allow 3 buttons (Cancel / Don't save / Save) */
+.dfoot{flex-wrap:wrap}
+.btn[hidden]{display:none}

@@ -13,7 +13,7 @@
 <!-- ============ END FAVICON ============ -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f46e5">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -25,7 +25,7 @@
 <div id="menu" class="menu" role="menu" hidden></div>
 <main class="wrap" id="app"></main>
 <dialog id="dlg"><form id="dlgForm"><h2 id="dlgT"></h2><div id="dlgB"></div>
-<div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
+<div class="dfoot"><button type="button" class="btn" id="dlgNo">Cancel</button><button type="button" class="btn dng" id="dlgX" hidden></button><button class="btn pri" id="dlgOk"></button></div></form></dialog>
 <div id="toast" role="status"></div>
 <input type="file" id="rf" accept="application/json,.json" hidden>
 <script src="supabase.js"></script>
@@ -198,9 +198,11 @@ const ABOUT=Object.assign({site:'Fund Sheet',by:'Precious Angel',photo:'photo.jp
 document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
-function modal(title,body,ok,fn){$('#dlgT').textContent=title;$('#dlgB').innerHTML=body;$('#dlgOk').textContent=ok;dlgFn=fn;$('#dlg').showModal();const i=$('#dlg input,#dlg textarea');if(i&&i.type!=='hidden')i.focus()}
+let dlgX=null;
+function modal(title,body,ok,fn,extra){$('#dlgT').textContent=title;$('#dlgB').innerHTML=body;$('#dlgOk').textContent=ok;dlgFn=fn;const x=$('#dlgX');dlgX=extra||null;if(x){x.hidden=!extra;if(extra)x.textContent=extra.label}$('#dlg').showModal();const i=$('#dlg input,#dlg textarea');if(i&&i.type!=='hidden')i.focus()}
 $('#dlgForm').onsubmit=e=>{e.preventDefault();if(dlgFn(new FormData(e.target))!==false){$('#dlg').close();render()}};
 $('#dlgNo').onclick=()=>$('#dlg').close();
+$('#dlgX').onclick=()=>{$('#dlg').close();if(dlgX&&dlgX.fn)dlgX.fn();render()};
 const confirmBox=(t,msg,ok,fn)=>modal(t,`<p>${msg}</p>`,ok,()=>{fn();toast('Done')});
 const match=s=>s.name.toLowerCase().includes(ui.q.trim().toLowerCase());
 const empty=t=>`<div class="empty">${t}</div>`;
@@ -237,6 +239,19 @@ function cStats(c){
 }
 function attCounts(marks,ids){const r={Present:0,Absent:0,Late:0,Excused:0,Unmarked:0};ids.forEach(id=>r[marks[id]||'Unmarked']++);return r}
 const chips=r=>Object.entries(r).filter(([k,v])=>k!=='Unmarked'||v).map(([k,v])=>`<span class="chip ${k}">${k}: ${v}</span>`).join('');
+/* ---------- Unsaved attendance guard ---------- */
+let curHash=location.hash,allowNav=false;
+const rt=h=>(h||'').replace(/^#/,'').split('/')[0]||'home';
+function attDirty(){
+  if(rt(curHash)!=='attendance'||!user)return false;
+  const d=draftRec(),rec=S.attendance.find(a=>akey(a)===akey(d));
+  if(!rec)return Object.keys(d.marks).length>0;
+  return stable(d.marks)!==stable(rec.marks||{})||(rec.time||'')!==(d.time||'')||(rec.scope||'all')!==d.scope;
+}
+function goTo(h){allowNav=true;location.hash=h}
+function askSaveThenGo(to){
+  modal('Save attendance?','<p style="margin:0">You have attendance that hasn’t been saved. Do you want to save it before leaving this page?</p>','Save and leave',()=>{acts.saveAtt();goTo(to)},{label:'Don’t save',fn:()=>{ui.marks={};goTo(to)}});
+}
 function loadDraft(){const k=akey({date:ui.date,subject:ui.subject}),rec=S.attendance.find(a=>akey(a)===k);ui.marks=rec?{...rec.marks}:{};if(rec){ui.scope=rec.scope||'all';ui.time=rec.time||''}}
 
 /* ---------- Views ---------- */
@@ -454,7 +469,11 @@ function render(){
   setSync();
   if(keep){const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
 }
-window.addEventListener('hashchange',()=>{ui.q='';if(route()[0]==='attendance'){if(ui.keep)ui.keep=false;else{ui.date=today();ui.subject='';ui.scope='all';ui.time=nowTime();loadDraft()}}render();window.scrollTo(0,0)});
+window.addEventListener('hashchange',()=>{
+  const to=location.hash,from=curHash;
+  if(!allowNav&&rt(from)==='attendance'&&rt(to)!=='attendance'&&attDirty()){history.replaceState(null,'',from||'#attendance');askSaveThenGo(to);return}
+  allowNav=false;curHash=to;
+  ui.q='';if(route()[0]==='attendance'){if(ui.keep)ui.keep=false;else{ui.date=today();ui.subject='';ui.scope='all';ui.time=nowTime();loadDraft()}}render();window.scrollTo(0,0)});
 
 /* ---------- Actions ---------- */
 function cForm(c){const a=c?(c.appliesTo==='class'?'all':c.appliesTo||'all'):'all',ids=new Set((c&&c.studentIds)||[]),wk=!!(c&&isW(c));
@@ -475,7 +494,7 @@ const vMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const vPass=p=>p.length<8?'Password must be at least 8 characters.':!/[A-Za-z]/.test(p)||!/\d/.test(p)?'Password needs at least one letter and one number.':'';
 const OFFMSG=a=>'You’re offline. Connect to the internet to '+a+'.';
 const acts={
-  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 15'}])},
+  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 16'}])},
   rowmenu(d,b){const s=S.students.find(x=>x.id===d.id);if(!s)return;openMenu(b,d.arch?[{act:'restoreStudent',id:s.id,label:'Restore'},{act:'delStudent',id:s.id,label:'Delete permanently',cls:'dng'}]:[{act:'toggleIrr',id:s.id,label:s.irregular?'Mark regular':'Mark irregular'},{act:'editStudent',id:s.id,label:'Edit'},{act:'archive',id:s.id,label:'Archive'}])},
   archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
   restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},
@@ -585,6 +604,7 @@ document.addEventListener('click',e=>{
   acts[b.dataset.act](b.dataset,b);
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menuFor){const t=menuFor;closeMenu();t.focus()}});
+window.addEventListener('beforeunload',e=>{if(attDirty()){e.preventDefault();e.returnValue=''}});
 window.addEventListener('resize',closeMenu);window.addEventListener('scroll',closeMenu,true);window.addEventListener('hashchange',closeMenu);
 document.addEventListener('input',e=>{
   if(e.target.id==='q'){ui.q=e.target.value;render()}
