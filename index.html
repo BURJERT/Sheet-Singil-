@@ -13,7 +13,7 @@
 <!-- ============ END FAVICON ============ -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f46e5">
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -276,16 +276,24 @@ attendance(){
   const pool=sessPool(),list=pool.filter(match).sort(byName),r=attCounts(ui.marks,pool.map(s=>s.id));
   const sess=S.attendance.filter(a=>a.date===ui.date).sort((a,b)=>(a.time||'').localeCompare(b.time||'')||(a.subject||'').localeCompare(b.subject||'')),subs=[...new Set(S.attendance.map(a=>a.subject).filter(Boolean))];
   return `<h1>Attendance</h1><p class="sub">Pick the date and subject, tap a status for each student, then save.</p>
-  <div class="card"><div class="bar"><div style="flex:1;min-width:140px"><label for="dt" style="margin:0 0 6px">Date</label><input id="dt" type="date" value="${ui.date}"></div>
-  <div style="flex:1;min-width:120px"><label for="tm" style="margin:0 0 6px">Time</label><input id="tm" type="time" value="${esc(ui.time)}"></div>
-  <div style="flex:2;min-width:200px"><label for="sj" style="margin:0 0 6px">Subject / class name</label><input id="sj" list="subs" maxlength="80" placeholder="e.g. Math 101" value="${esc(ui.subject)}" autocomplete="off"><datalist id="subs">${subs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
-  <div style="flex:1;min-width:150px"><label for="sc" style="margin:0 0 6px">Students</label><select id="sc">${[['all','All students'],['regular','Regular only'],['irregular','Irregular only']].map(([v,l])=>`<option value="${v}"${ui.scope===v?' selected':''}>${l}</option>`).join('')}</select></div></div>
-  ${sess.length?`<div class="bar" style="margin-bottom:10px"><span style="color:var(--mute);font-size:14px;font-weight:600">Saved this day:</span>${sess.map(a=>`<button class="btn sm${akey(a)===akey({date:ui.date,subject:ui.subject})?' pri':''}" data-act="openSess" data-id="${a.id}">${esc(a.subject||'General')}${a.time?' · '+fmtTime(a.time):''}</button>`).join('')}<button class="btn sm" data-act="newSess">+ New subject</button></div>`:''}
-  <div class="bar"><button class="btn pri" data-act="allPresent">Mark all present</button></div>
-  <div class="chips">${chips(r)}</div>${searchBar('Search students')}
-  ${list.length?list.map(s=>`<div class="row"><span class="nm">${esc(s.name)}${s.irregular?' <span class="badge Excused" style="font-size:11px;margin-left:6px">Irregular</span>':''}</span><div class="seg">${STAT.map(t=>`<button data-act="mark" data-id="${s.id}" data-s="${t}" class="${ui.marks[s.id]===t?'on':''}" aria-pressed="${ui.marks[s.id]===t}">${t}</button>`).join('')}</div></div>`).join(''):empty(pool.length?'No student matches your search.':S.students.length?'No students in this group.':'Add students first to take attendance.')}
+  <div class="card">
+  <div class="att-fields">
+    <div class="f-date"><label for="dt">Date</label><input id="dt" type="date" value="${ui.date}"></div>
+    <div class="f-time"><label for="tm">Time</label><input id="tm" type="time" value="${esc(ui.time)}"></div>
+    <div class="f-sub"><label for="sj">Subject / class name</label><input id="sj" list="subs" maxlength="80" placeholder="e.g. Math 101" value="${esc(ui.subject)}" autocomplete="off"><datalist id="subs">${subs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+    <div class="f-scope"><label for="sc">Students</label><select id="sc">${[['all','All students'],['regular','Regular only'],['irregular','Irregular only']].map(([v,l])=>`<option value="${v}"${ui.scope===v?' selected':''}>${l}</option>`).join('')}</select></div>
   </div>
-  <div class="bar"><button class="btn pri" data-act="saveAtt">Save attendance</button><button class="btn" data-act="printAtt">Print</button><button class="btn" data-act="pdfAtt">Download PDF</button><a class="btn" href="#history">View history</a></div>`;
+  ${sess.length?`<div class="att-sess"><span class="lbl">Saved this day</span>${sess.map(a=>`<button class="btn sm${akey(a)===akey({date:ui.date,subject:ui.subject})?' pri':''}" data-act="openSess" data-id="${a.id}">${esc(a.subject||'General')}${a.time?' · '+fmtTime(a.time):''}</button>`).join('')}<button class="btn sm" data-act="newSess">+ New subject</button></div>`:''}
+  <div class="att-actions">
+    <button class="btn a-mark" data-act="allPresent">Mark all present</button>
+    <button class="btn pri a-save" data-act="saveAtt">Save attendance</button>
+    <button class="btn a-print" data-act="printAtt">Print</button>
+    <button class="btn a-pdf" data-act="pdfAtt" title="Download PDF">PDF</button>
+    <a class="btn a-hist" href="#history">History</a>
+  </div>
+  <div class="chips">${chips(r)}</div>${searchBar('Search students')}
+  ${list.length?list.map(s=>`<div class="row att-row"><span class="nm">${esc(s.name)}${s.irregular?' <span class="badge Excused" style="font-size:11px;margin-left:6px">Irregular</span>':''}</span><div class="seg">${STAT.map(t=>`<button data-act="mark" data-id="${s.id}" data-s="${t}" class="${ui.marks[s.id]===t?'on':''}" aria-pressed="${ui.marks[s.id]===t}">${t}</button>`).join('')}</div></div>`).join(''):empty(pool.length?'No student matches your search.':S.students.length?'No students in this group.':'Add students first to take attendance.')}
+  </div>`;
 },
 history(){
   const recs=[...S.attendance].sort((a,b)=>b.date.localeCompare(a.date)||(a.time||'').localeCompare(b.time||'')||(a.subject||'').localeCompare(b.subject||''));
@@ -467,7 +475,7 @@ const vMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const vPass=p=>p.length<8?'Password must be at least 8 characters.':!/[A-Za-z]/.test(p)||!/\d/.test(p)?'Password needs at least one letter and one number.':'';
 const OFFMSG=a=>'You’re offline. Connect to the internet to '+a+'.';
 const acts={
-  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 14'}])},
+  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 15'}])},
   rowmenu(d,b){const s=S.students.find(x=>x.id===d.id);if(!s)return;openMenu(b,d.arch?[{act:'restoreStudent',id:s.id,label:'Restore'},{act:'delStudent',id:s.id,label:'Delete permanently',cls:'dng'}]:[{act:'toggleIrr',id:s.id,label:s.irregular?'Mark regular':'Mark irregular'},{act:'editStudent',id:s.id,label:'Edit'},{act:'archive',id:s.id,label:'Archive'}])},
   archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
   restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},

@@ -5,7 +5,7 @@
      5 Buttons         6 Forms         7 List rows       8 Attendance buttons
      9 Chips + status colors + badges  10 Progress + small bits
      11 Dialogs + toast  12 Phone layout  13 Print  14 Summary tables
-     15 Sync status + text links  16 Menus (burger + 3-dot)
+     15 Sync status + text links  16 Menus (burger + 3-dot)  17 Attendance page
    Colors that carry meaning: --present --absent --late --excused (attendance)
                               --paid --partial --unpaid (payments)
    Quick restyle: change the variables in sections 1 and 2 only.
@@ -61,7 +61,7 @@ input,select,textarea{font:500 16px var(--font);width:100%;min-height:48px;paddi
 textarea{min-height:80px}
 label{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-.bar input{flex:1;min-width:180px}
+.bar>input{flex:1;min-width:180px}
 
 /* ---------- 7. LIST ROWS (students, payments) ---------- */
 .row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -162,3 +162,30 @@ nav{order:3}
 .menu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
 .menu-head{padding:8px 14px;font-size:13px;color:var(--mute);word-break:break-all}
 @media(max-width:640px){#burger{order:3}nav{order:4;flex-basis:100%}}
+
+/* ---------- 17. ATTENDANCE PAGE: fields, toolbar, student rows ---------- */
+.att-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.att-fields>div{min-width:0}
+.att-fields label{margin:0 0 6px}
+.att-fields input,.att-fields select{min-width:0;width:100%}
+.f-sub,.f-scope{grid-column:1/-1}
+.att-sess{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.att-sess .lbl{color:var(--mute);font-size:14px;font-weight:600;width:100%}
+.att-sess .btn{min-height:40px;padding:0 12px;font-size:14px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.att-actions{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.att-actions .btn{width:100%;padding:0 8px;font-size:14px;text-align:center}
+.a-mark,.a-save{grid-column:span 3}
+.a-print,.a-pdf,.a-hist{grid-column:span 2}
+@media(min-width:700px){
+  .att-fields{grid-template-columns:1fr 1fr 2fr 1.2fr}
+  .f-sub,.f-scope{grid-column:auto}
+  .att-actions{display:flex;flex-wrap:wrap}
+  .att-actions .btn{width:auto;padding:0 18px;font-size:15px}
+}
+@media(max-width:640px){
+  header.top{position:static}
+  .card{padding:14px}
+  .att-row .nm{flex:1 1 100%;min-width:0;overflow-wrap:anywhere}
+  .att-row .seg{max-width:none}
+  .seg button{padding:0 2px}
+}
