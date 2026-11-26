@@ -17,7 +17,7 @@
 
 /* ---------- 1. DESIGN TOKENS: colors, radius, font. Change these first ---------- */
 :root{--bg:#f6f7fb;--card:#fff;--ink:#14162b;--mute:#6b7089;--line:#e4e6f0;--accent:#4f46e5;--accent-ink:#fff;--accent-soft:#eceafd;
---present:#15803d;--absent:#dc2626;--late:#b45309;--excused:#2563eb;--paid:#15803d;--partial:#b45309;--unpaid:#dc2626;
+--present:#8b84ff;--absent:#8b84ff;--late:#8b84ff;--excused:#8b84ff;--paid:#8b84ff;--partial:#8b84ff;--unpaid:#8b84ff;
 --r:16px;--font:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,sans-serif;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 
@@ -161,7 +161,57 @@ nav{order:3}
 .menu button.dng{color:var(--absent)}
 .menu hr{border:0;border-top:1px solid var(--line);margin:6px 4px}
 .menu-head{padding:8px 14px;font-size:13px;color:var(--mute);word-break:break-all}
-@media(max-width:640px){#burger{order:3}nav{order:4;flex-basis:100%}}
+
+@media(max-width:640px){
+  header.top{
+    position:static;
+  }
+
+  .card{
+    padding:14px;
+  }
+
+  /* Keep each student row organized */
+  .att-row{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+    width:100%;
+  }
+
+  /* Student name */
+  .att-row .nm{
+    flex:1 1 auto;
+    width:100%;
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+
+  /* Attendance buttons */
+  .att-row .seg{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:6px;
+    width:100%;
+    max-width:none;
+  }
+
+  .att-row .seg button{
+    width:100%;
+    min-width:0;
+    min-height:42px;
+    padding:0 2px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  /* Prevent horizontal overflow */
+  .att-row{
+    overflow:hidden;
+  }
+}
+
 
 /* ---------- 17. ATTENDANCE PAGE: fields, toolbar, student rows ---------- */
 .att-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}

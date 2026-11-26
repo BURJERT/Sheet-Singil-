@@ -1,0 +1,137 @@
+[33m96255f3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mnew-design[m[33m, [m[1;31morigin/new-design[m[33m)[m testing
+[33m8c17a19[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m Update message in config.js
+[33m1f5cd38[m Add files via upload
+[33m48760d4[m Add files via upload
+[33me843809[m Add files via upload
+[33m0eaf421[m Update service worker version from v12 to v13
+[33m55f8267[m Update styles.css
+[33mf8f020e[m Update fmt.Println message from 'Hello' to 'Goodbye'
+[33m186da97[m Update service worker version from v12 to v13
+[33mbbcf8cb[m Implement menu styles for burger and 3-dot buttons
+[33m82fb5b8[m Update index.html
+[33mff8160d[m Enhance attendance data display with irregularity info
+[33me38e112[m Update index.html
+[33m9b01c85[m Update index.html
+[33m1a5c2e3[m Update index.html
+[33m2fce3ff[m Add files via upload
+[33m21528d9[m Update service worker version and core assets
+[33m25d5a8e[m Update index.html
+[33m887e3cb[m Refactor service worker caching strategy
+[33m7a372f0[m Change title and branding from 'Sheet, Singil!' to 'Fund Sheet'
+[33m304a97e[m Update config.js
+[33mef32b21[m Merge pull request #1 from BURJERT/BURJERT-patch-1
+[33ma7fb83a[m[33m ([m[1;31morigin/BURJERT-patch-1[m[33m)[m Add files via upload
+[33m4200666[m Add files via upload
+[33mfe50b89[m Add files via upload
+[33m06b8fe3[m Enhance contributions with recipient IDs
+[33m1070e0c[m Update upgrade.sql
+[33m475421f[m Update schema.sql to modify table definitions
+[33m7878fa0[m Update service worker version to singil-v9
+[33meacd3e6[m Update config.js
+[33m36bc535[m Fix author name formatting in config.js
+[33m0f4e1b3[m Update photo filename in config.js
+[33mcd075b2[m Rename 8c874ed4-efc9-48ce-be2b-ab3ccb493b69.jpg to pfp.jpg
+[33md7dc7a6[m Update config.js
+[33m5f0446f[m Add files via upload
+[33m7b0f587[m Update service worker version and cache assets
+[33m5c27f24[m Update index.html
+[33m7503955[m Delete singillogo-32.png
+[33m2a7a3fc[m Delete singillogo-192.png
+[33mfd96a86[m Delete singillogo-180.png
+[33m86bc7a3[m Delete singillogo-512.png
+[33mf639a3d[m Add files via upload
+[33m711b6a0[m Add files via upload
+[33m98ddaf0[m Delete singil/README.txt
+[33m12ca72f[m Delete singil/singil.ico
+[33mc18c5b9[m Delete singil/singil-512.png
+[33m945ae44[m Delete singil/singin(1).png
+[33m93e6419[m Delete singil/singil-32.png
+[33m9dedbb3[m Delete singil/singil-192.png
+[33m564894e[m Delete singil/singil-180.png
+[33mebfc1ca[m Delete apple-touch-icon.png
+[33m70a030e[m Delete README.txt
+[33m0400e5d[m Delete singin(1).png
+[33mc32fd66[m Add files via upload
+[33m58db9fb[m Add files via upload
+[33mf18e153[m Update service worker version and asset references
+[33maf469c1[m Update index.html
+[33mb47fbdf[m Rename singil-32 (1).png to singil-32.png
+[33md2f953c[m Add files via upload
+[33m0deddab[m Delete singil/singil-32.png
+[33m2fb8ae2[m Update service worker version from v4 to v5
+[33mea2e204[m Update index.html
+[33m794db28[m Update sw.js
+[33mb9b8658[m Add files via upload
+[33mf9a9380[m Update index.html
+[33m0c7986a[m Add files via upload
+[33m87b44f7[m Delete singil
+[33m72b34b1[m Create singil
+[33m3a23a58[m Delete favicon/README.txt
+[33ma595ca4[m Delete favicon/apple-touch-icon.png
+[33m24baecf[m Delete favicon/favicon-32.png
+[33m14f955d[m Delete favicon/favicon.svg
+[33mda7e496[m Delete favicon/icon-192.png
+[33m01bf877[m Delete favicon/icon-512.png
+[33mf68efd8[m Add files via upload
+[33m0c04092[m Delete logo1.png
+[33me31d31f[m Delete icon-512.png
+[33mec913b8[m Delete icon-192.png
+[33m7f538cc[m Delete favicon.svg
+[33m0a101f0[m Delete favicon-32.png
+[33m1327287[m Add files via upload
+[33m0eb0c77[m Add files via upload
+[33m2fae064[m Delete favicon directory
+[33m5bba697[m Update index.html
+[33ma6e47b9[m Update index.html
+[33mb72f1b9[m Add files via upload
+[33m18676a8[m Delete favicon/icon-192.png
+[33mecc0f28[m Update index.html
+[33ma2ff950[m Add files via upload
+[33m9574e72[m Delete favicon/favicon-32.png
+[33m36edb1e[m Rename favicon-32.png.png to favicon-32.png
+[33m089eb96[m Add files via upload
+[33ma64544b[m Delete favicon/favicon.svg
+[33m7c1aacb[m Delete favicon/favicon-32x32.png
+[33m5ba888e[m Delete favicon/favicon-32.png
+[33m7496698[m Delete favicon/icon-512.png
+[33m9742337[m Delete favicon/favicon-16x16.png
+[33m6d2cdba[m Delete favicon/site.webmanifest
+[33m9ee2561[m Delete favicon/favicon.ico
+[33mdd036c6[m Delete favicon/apple-touch-icon.png
+[33m1770791[m Delete favicon/android-chrome-512x512.png
+[33me6c5a02[m Delete favicon/android-chrome-192x192.png
+[33mefd0a3d[m Add files via upload
+[33mb947073[m Delete favicon/favicon/favicon-32.png
+[33mdec69d4[m Rename favicon/fundsheet.png to favicon/favicon/favicon-32.png
+[33m08cae79[m Add files via upload
+[33mca5d5af[m Update upgrade.sql
+[33ma990f23[m Update index.html
+[33mb83ad25[m Add files via upload
+[33mee183ee[m Refactor header and update logo link
+[33m8bc2006[m Update index.html
+[33mb613df6[m Add favicon link to index.html
+[33m3115148[m Update index.html
+[33m33ba0bd[m Update index.html
+[33m2265de2[m Add files via upload
+[33m0f2c4a3[m Update index.html
+[33me5c6ecb[m Update header with logo and status span
+[33ma0baa88[m Update author name in SINGIL_ABOUT configuration
+[33m3012dbe[m Update config.js
+[33mf6d47fc[m Add files via upload
+[33mc6c4c77[m Update index.html
+[33mf213410[m Update index.html
+[33mb16687c[m Optimize deletion of records in index.html
+[33m31e6440[m Update index.html
+[33m955ff7a[m Revise config.js with updated project details
+[33m5d40444[m Update index.html
+[33m1593f5a[m Update message in SINGIL_ABOUT object
+[33m18c4c75[m Add site info and project description to config.js
+[33mf3fddea[m Update index.html
+[33m288c0cd[m Refactor Supabase client initialization
+[33m116efdf[m Update Supabase URL in configuration
+[33m77ac169[m Update config.js
+[33m77f2924[m Add files via upload
+[33me280249[m Update config.js
+[33ma8baee3[m Delete README.md
+[33ma8e210a[m Add files via upload
+[33me4c3708[m Initial commit

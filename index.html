@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fund Sheet</title>
-<h1>Sheet, Singil! - TEST VERSION</h1>
+<title>Sheet, Singil!</title>
 <!-- ============ ADD YOUR FAVICON IMAGE HERE ============
      Replace the files inside the /singil folder with your own image (keep the same file names).
      Instructions: singillogo/README.txt -->
@@ -18,7 +17,7 @@
 </head>
 <body>
 <header class="top"><div class="wrap">
-<a class="brand" href="#home">Fund Sheet</a>
+<a class="brand" href="#home">Sheet, Singil!</a>
 <span id="sync" role="status"></span>
 <nav id="nav"></nav>
 <button id="burger" class="icon-btn" data-act="menu" aria-label="Open menu" aria-haspopup="menu" aria-expanded="false" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -195,7 +194,7 @@ const STAT=['Present','Absent','Late','Excused'];
 const nowTime=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
 const fmtTime=t=>t?new Date('1970-01-01T'+t).toLocaleTimeString('en-PH',{hour:'numeric',minute:'2-digit'}):'';
 let ui={time:nowTime(),q:'',date:today(),marks:{},open:{},fc:'all',fs:'all',subject:'',scope:'all'};
-const ABOUT=Object.assign({site:'Fund Sheet',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
+const ABOUT=Object.assign({site:'Sheet, Singil!',by:'Precious Angel',photo:'photo.jpg',portfolio:'https://preciousangelnignacio-portfolio.vercel.app/',project:'This web app helps class officers take attendance and track class contributions in one place. It keeps one shared student list, records every payment, and prints clean summaries.',message:'Thank you for using this classroom management system. This project was created to make classroom attendance monitoring and class financial records easier, faster, and more organized. I hope this tool helps students and class officers manage their responsibilities more conveniently.'},window.SINGIL_ABOUT||{});
 document.title=ABOUT.site;$('.brand').textContent=ABOUT.site;
 let dlgFn=null;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -495,7 +494,7 @@ const vMail=e=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 const vPass=p=>p.length<8?'Password must be at least 8 characters.':!/[A-Za-z]/.test(p)||!/\d/.test(p)?'Password needs at least one letter and one number.':'';
 const OFFMSG=a=>'You’re offline. Connect to the internet to '+a+'.';
 const acts={
-  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Fund Sheet · version 16'}])},
+  menu(d,b){openMenu(b,[{head:esc(user&&user.email||'')+(sec()?'<br><b>'+esc(sec())+'</b>':'')},{act:'editSection',label:sec()?'Edit section name':'Set section name'},{sep:1},{act:'backup',label:'Download backup'},{act:'restore',label:'Restore from backup'},{act:'newSem',label:'Start new semester',cls:'dng'},{sep:1},{act:'signout',label:'Sign out',cls:'dng'},{sep:1},{head:'Sheet, Singil! · version 16'}])},
   rowmenu(d,b){const s=S.students.find(x=>x.id===d.id);if(!s)return;openMenu(b,d.arch?[{act:'restoreStudent',id:s.id,label:'Restore'},{act:'delStudent',id:s.id,label:'Delete permanently',cls:'dng'}]:[{act:'toggleIrr',id:s.id,label:s.irregular?'Mark regular':'Mark irregular'},{act:'editStudent',id:s.id,label:'Edit'},{act:'archive',id:s.id,label:'Archive'}])},
   archive({id}){const s=S.students.find(x=>x.id===id);s.inactive=true;delete ui.marks[id];save('students');toast(s.name+' archived. Records kept.');render()},
   restoreStudent({id}){const s=S.students.find(x=>x.id===id);s.inactive=false;save('students');toast(s.name+' restored');render()},
