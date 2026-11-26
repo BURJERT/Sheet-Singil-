@@ -144,6 +144,31 @@ dialog::backdrop{background:rgb(15 23 42 / .5)}
 #app:has(.att-fields) .att-row .nm{font-size:15px}
 #app:has(.att-fields) .att-row .seg{flex-basis:100%;max-width:none}
 
+/* Treasurer payment counts: one-line dark status strip with color only on the dots. */
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid){
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+  width:100%;
+  align-items:center;
+  padding:10px 12px;
+  background:#1e293b;
+  border:1px solid #334155;
+  border-radius:8px;
+}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip{
+  min-width:0;
+  white-space:nowrap;
+  justify-content:center;
+  padding:5px 2px;
+  color:#f8fafc;
+  font-size:12px;
+}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip b{color:#fff;font-weight:800}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Paid::before{width:8px;height:8px;background:#10b981}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Partial::before{width:8px;height:8px;background:#f59e0b}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Unpaid::before{width:8px;height:8px;background:#f43f5e}
+
 /* Print layout */
 .print-only{display:none}
 @media print{
@@ -198,5 +223,6 @@ dialog::backdrop{background:rgb(15 23 42 / .5)}
   .att-row .nm{flex:1 1 100%;min-width:0;overflow-wrap:anywhere}
   .seg button{padding:0 2px}
   #app:has(.att-fields) .att-actions .btn{flex:initial}
+  .chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip{font-size:11px;gap:5px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
