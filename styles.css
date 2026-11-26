@@ -124,15 +124,21 @@ dialog::backdrop{background:rgb(15 23 42 / .5)}
 .a-print,.a-pdf,.a-hist{border-color:transparent;background:transparent;color:var(--mute);font-size:12px!important}
 .a-print:hover,.a-pdf:hover,.a-hist:hover{background:#f1f5f9;color:var(--ink)}
 
-/* Attendance counts: one quiet summary surface with status dots, no outline pills. */
-#app:has(.att-fields) .chips{gap:0;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 14px}
-#app:has(.att-fields) .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;background:transparent;border:0;border-radius:0;color:var(--ink);font-size:12px;font-weight:700}
-#app:has(.att-fields) .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mute);flex:none}
+/* Attendance and Treasurer indicators: quiet status dots on one flat row. */
+#app:has(.att-fields) .chips,
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid){gap:0;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 14px}
+#app:has(.att-fields) .chip,
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;background:transparent;border:0;border-radius:0;color:var(--ink);font-size:12px;font-weight:700}
+#app:has(.att-fields) .chip::before,
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mute);flex:none}
 #app:has(.att-fields) .chip.Present::before{background:var(--present)}
 #app:has(.att-fields) .chip.Absent::before{background:var(--absent)}
 #app:has(.att-fields) .chip.Late::before{background:var(--late)}
 #app:has(.att-fields) .chip.Excused::before{background:var(--excused)}
 #app:has(.att-fields) .chip.Unmarked::before{background:#94a3b8}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Paid::before{background:var(--paid)}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Partial::before{background:var(--partial)}
+.chips:has(.chip.Paid):has(.chip.Partial):has(.chip.Unpaid) .chip.Unpaid::before{background:var(--unpaid)}
 #app:has(.att-fields) #q{min-height:44px;border:0;border-radius:8px;background:#f1f5f9;padding-left:14px}
 #app:has(.att-fields) .att-row{gap:8px 12px;padding:14px 0;border-top:1px solid var(--line)}
 #app:has(.att-fields) .att-row .nm{font-size:15px}
